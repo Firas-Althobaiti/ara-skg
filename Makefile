@@ -27,3 +27,4 @@ down:
 	docker compose down
 
 .PHONY: install lint type test cov demo seed up down
+
