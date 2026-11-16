@@ -1,5 +1,3 @@
-"""Simple sanity checks that the client classes can be imported and instantiated."""
-
 import asyncio
 from ara.clients.kg import KnowledgeGraphClient
 from ara.clients.neo4j import Neo4jKnowledgeGraphClient
@@ -38,4 +36,5 @@ async def test_client_instantiation():
     linker = EntityLinkingClient()
     entity = await linker.link_entity("p53", "protein")
     assert entity.name == "proteinX"
+
 
