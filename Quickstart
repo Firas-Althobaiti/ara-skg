@@ -1,5 +1,5 @@
 # 1️⃣ Clone & enter repo
-git clone https://github.com/your‑org/ara-skg.git
+git clone https://github.com/your-org/ara-skg.git
 cd ara-skg
 
 # 2️⃣ Install dev tools
@@ -8,5 +8,5 @@ make install
 # 3️⃣ Spin up Neo4j (and optional Postgres)
 docker compose up -d
 
-# 4️⃣ Run the end‑to‑end demo
+# 4️⃣ Run the end-to-end demo
 make demo
