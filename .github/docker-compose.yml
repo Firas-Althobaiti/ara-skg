@@ -1,0 +1,33 @@
+services:
+  neo4j:
+    image: neo4j:5
+    container_name: ara-neo4j
+    ports:
+      - "7474:7474"   # HTTP
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/testpassword
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    container_name: ara-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ara
+      POSTGRES_PASSWORD: ara
+      POSTGRES_DB: ara
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  neo4j_data:
+  pg_data:
