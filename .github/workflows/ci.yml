@@ -1,3 +1,4 @@
+# File: .github/workflows/ci.yml
 name: CI
 
 on:
@@ -28,3 +29,4 @@ jobs:
         run: make type
       - name: Test
         run: make test
+
