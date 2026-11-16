@@ -1,18 +1,41 @@
+"""LLM factory and structured‑output helper."""
+
+from __future__ import annotations
+
 from typing import Literal, TypeVar, Callable
 from langchain_openai import ChatOpenAI
-from langchain.schema import BaseMessage
 from pydantic import BaseModel
+
 
 T = TypeVar("T", bound=BaseModel)
 
-def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
-    """Factory that returns a LangChain LLM instance."""
-    if tier == "fast":
-        model = "gpt-4o-mini"
-    else:
-        model = "gpt-4o"
-    return ChatOpenAI(model=model, temperature=0, max_tokens=2000)
 
-def structured(llm: ChatOpenAI, schema: type[T]) -> Callable[[BaseMessage], T]:
-    """Wrap an LLM with structured output for the given Pydantic schema."""
+def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
+    """
+    Return a LangChain ChatOpenAI instance.
+
+    - ``reason → ``gpt-4o (full‑size model, low temperature)
+    - ``fast   → ``gpt-4o-mini (smaller, faster model)
+    """
+    if tier == "fast":
+        model_id = "gpt-4o-mini"
+    else:  # "reason"
+        model_id = "gpt-4o"
+
+    return ChatOpenAI(
+        model=model_id,
+        temperature=0,
+        max_tokens=2000,
+        max_retries=3,
+    )
+
+
+def structured(llm: ChatOpenAI, schema: type[T]) -> Callable[[BaseModel], T]:
+    """
+    Wrap a ChatOpenAI instance with structured output for the given Pydantic schema.
+
+    The returned callable accepts a LangChain ``BaseMessage and returns an
+    instance of ``schema.
+    """
     return llm.with_structured_output(schema)
+
