@@ -1,4 +1,3 @@
-# File: docs/adr/0001-subgraphs-and-checkpointer.md
 # ADR‑0001 – Subgraphs, Checkpointer, Interrupts, Send Fan‑out
 
 ## Status
