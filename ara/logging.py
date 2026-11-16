@@ -1,6 +1,15 @@
-import structlog
-from typing import Any
+"""Structured logging helper."""
 
-def get_logger(name: str = "ara") -> Any:
-    """Return a structured logger bound to the given name."""
-    return structlog.get_logger(name).bind()
+import structlog
+
+
+def get_logger(name: str = "ara"):
+    """
+    Return a structured logger bound to *name*.
+
+    The logger can be used as:
+
+    >>> log = get_logger("my_component")
+    >>> log.info("something happened")
+    """
+    return structlog.get_logger(name)
