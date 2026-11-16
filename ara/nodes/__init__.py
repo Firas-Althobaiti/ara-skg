@@ -1,4 +1,3 @@
-# File: ara/nodes/__init__.py (updated)
 """Namespace for node implementations."""
 from .ingestion import ingest_papers
 from .extraction import (
@@ -28,7 +27,7 @@ from .hypothesis import (
 )
 from .experiment import (
     propose_experiment_node,
-    validate_feasibility_node,
+    validate_experiment_node,
 )
 from .evolution import (
     window_triples_node,
@@ -56,7 +55,7 @@ __all__ = [
     "rank_hypotheses_node",
     "critique_hypothesis_node",
     "propose_experiment_node",
-    "validate_feasibility_node",
+    "validate_experiment_node",
     "window_triples_node",
     "detect_changes_node",
     "summarize_evolution_node",
