@@ -27,7 +27,6 @@ class PubMedClient:
         for uid in id_list:
             params = {"db": "pubmed", "id": uid, "retmode": "json"}
             esummary = await self._request("esummary", params)
-            # Extract minimal fields
             title = esummary["result"].get("article-title", [""])[0]
             abstract = esummary["result"].get("abstract", {}).get("abstract-text", [""])[0]
             paper = Paper(
@@ -41,7 +40,7 @@ class PubMedClient:
                 full_text=None,
                 chunks=[],
             )
-            # Add a placeholder chunk for demonstration
+            # placeholder chunk
             paper.chunks.append(
                 Chunk(text="Placeholder abstract.", paper_id=uid, span=0, embedding=None)
             )
