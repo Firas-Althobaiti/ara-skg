@@ -1,13 +1,3 @@
-# 🧪 ARA‑SKG – Autonomous Research Assistant (LangGraph + Scientific Knowledge Graph)
-
-A modular, LangGraph‑driven framework for:
-
-* ingesting biomedical literature,
-* extracting entities, relations, and hypotheses,
-* continuously updating a scientific knowledge graph,
-* querying the graph and generating grounded, testable hypotheses,
-* tracking concept evolution over time.
-
 ## Architecture (Mermaid)
 
 ```mermaid
@@ -40,4 +30,3 @@ flowchart TD
         L[Evolution Subgraph] -->|window| Ev[Evolution Events]
     end
     I --> E --> U --> Q --> H --> X --> L --> A
-Quickstart
