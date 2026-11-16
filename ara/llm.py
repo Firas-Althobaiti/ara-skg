@@ -39,3 +39,4 @@ def structured(llm: ChatOpenAI, schema: type[T]) -> Callable[[BaseModel], T]:
     """
     return llm.with_structured_output(schema)
 
+
