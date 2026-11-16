@@ -45,3 +45,4 @@ class ArXivClient:
 
     async def close(self):
         await self.http.aclose()
+
