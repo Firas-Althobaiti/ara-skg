@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseSettings, Field, ValidationError
 from typing import Literal, Optional
+import os
+from functools import lru_cache
 
 
 class Settings(BaseSettings):
@@ -40,3 +42,4 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Convenient accessor used throughout the codebase."""
     return Settings.get_settings()
+
