@@ -24,3 +24,4 @@ class KnowledgeGraphClient(Protocol):
 
     async def ensure_schema(self) -> None:
         """Make sure the underlying store schema is ready."""
+
