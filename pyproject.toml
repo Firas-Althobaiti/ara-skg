@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ara-skg"
 version = "0.1.0"
@@ -31,3 +35,4 @@ dev = [
     "mypy",
     "pre-commit",
 ]
+
