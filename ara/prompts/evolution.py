@@ -1,22 +1,15 @@
-"""Prompts used by the evolution subgraph."""
+"""Prompts for the evolution subgraph."""
 
-SYSTEM_WINDOW_TRIPLES = """
-Extract all triples that were added or modified in the given time window.
-Return a JSON array of triples (subject, predicate, object, confidence, provenance).
+SYSTEM_SUMMARIZE_EVOLUTION = """
+You are a scientific analyst. Given a list of evolution events (emerging, fading, relation_shift, renamed),
+produce a concise markdown report summarizing the changes, with bullet points and evidence.
 """
 
 SYSTEM_DETECT_CHANGES = """
-Given two sets of triples (current and previous), detect emerging, fading, renamed, and relation_shift events.
-Return a JSON array of EvolutionEvent objects (window, entity_id, change_type, before, after, evidence).
+You are a change detector. Given two sets of triples (previous and current),
+identify emerging, fading, renamed, and relation_shift events.
+Return a JSON list of events with fields: change_type, entity_id, before, after, evidence.
 """
 
-SYSTEM_SUMMARIZE_EVOLUTION = """
-Generate a markdown report summarizing the evolution events, citing evidence.
-Return a single string containing the markdown report.
-"""
+__all__ = ["SYSTEM_SUMMARIZE_EVOLUTION", "SYSTEM_DETECT_CHANGES"]
 
-__all__ = [
-    "SYSTEM_WINDOW_TRIPLES",
-    "SYSTEM_DETECT_CHANGES",
-    "SYSTEM_SUMMARIZE_EVOLUTION",
-]
