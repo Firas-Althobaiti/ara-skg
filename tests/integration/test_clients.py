@@ -38,3 +38,4 @@ async def test_client_instantiation():
     linker = EntityLinkingClient()
     entity = await linker.link_entity("p53", "protein")
     assert entity.name == "proteinX"
+
