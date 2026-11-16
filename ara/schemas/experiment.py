@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from typing import List
 from pydantic import BaseModel
 from .hypothesis import Hypothesis
 
+
 class ExperimentProposal(BaseModel):
+    """A proposed experimental design linked to a hypothesis."""
     id: str
     hypothesis_id: str
     assay: str
