@@ -1,12 +1,40 @@
+# File: ara/nodes/__init__.py (updated)
 """Namespace for node implementations."""
 from .ingestion import ingest_papers
-from .extraction import extract_entities_node, extract_relations_node, link_entities_node, validate_triples_node
-from .graph_update import resolve_triples_node, ensure_schema_node, upsert_kg_node, rollback_on_error
-from .query import classify_query_node, nl2cypher_node, guard_cypher_node, run_cypher_node, synthesize_answer_node
-from .hypothesis import generate_hypotheses, ground_hypothesis, rank_hypotheses, critique_hypothesis
-from .experiment import propose_experiment, validate_experiment
-from .evolution import window_triples, detect_changes, summarize_evolution
-from .supervisor import classify_intent, critic_check, replan_task
+from .extraction import (
+    extract_entities_node,
+    extract_relations_node,
+    link_entities_node,
+    validate_triples_node,
+)
+from .graph_update import (
+    resolve_triples_node,
+    ensure_schema_node,
+    upsert_kg_node,
+    rollback_on_error,
+)
+from .query import (
+    classify_query_node,
+    nl2cypher_node,
+    guard_cypher_node,
+    run_cypher_node,
+    synthesize_answer_node,
+)
+from .hypothesis import (
+    generate_hypotheses_node,
+    ground_hypothesis_node,
+    rank_hypotheses_node,
+    critique_hypothesis_node,
+)
+from .experiment import (
+    propose_experiment_node,
+    validate_feasibility_node,
+)
+from .evolution import (
+    window_triples_node,
+    detect_changes_node,
+    summarize_evolution_node,
+)
 
 __all__ = [
     "ingest_papers",
@@ -23,17 +51,16 @@ __all__ = [
     "guard_cypher_node",
     "run_cypher_node",
     "synthesize_answer_node",
-    "generate_hypotheses",
-    "ground_hypothesis",
-    "rank_hypotheses",
-    "critique_hypothesis",
-    "propose_experiment",
-    "validate_experiment",
-    "window_triples",
-    "detect_changes",
-    "summarize_evolution",
+    "generate_hypotheses_node",
+    "ground_hypothesis_node",
+    "rank_hypotheses_node",
+    "critique_hypothesis_node",
+    "propose_experiment_node",
+    "validate_feasibility_node",
+    "window_triples_node",
+    "detect_changes_node",
+    "summarize_evolution_node",
     "classify_intent",
     "critic_check",
     "replan_task",
 ]
-
