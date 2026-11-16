@@ -25,9 +25,7 @@ class DummyRunnable:
 
 
 def test_get_llm_reason(monkeypatch):
-    """get_llm('reason') should use the 'gpt-4o' model."""
     dummy = DummyChatOpenAI()
-    # Patch the real class
     monkeypatch.setattr("ara.llm.ChatOpenAI", lambda **kw: dummy)
     llm = get_llm("reason")
     assert isinstance(llm, DummyChatOpenAI)
@@ -38,7 +36,6 @@ def test_get_llm_reason(monkeypatch):
 
 
 def test_get_llm_fast(monkeypatch):
-    """get_llm('fast') should use the 'gpt-4o-mini' model."""
     dummy = DummyChatOpenAI()
     monkeypatch.setattr("ara.llm.ChatOpenAI", lambda **kw: dummy)
     llm = get_llm("fast")
@@ -47,7 +44,6 @@ def test_get_llm_fast(monkeypatch):
 
 
 def test_structured_returns_runnable(monkeypatch):
-    """structured() should return an object that has a ``run method."""
     dummy_llm = DummyChatOpenAI()
     dummy_runnable = DummyRunnable(schema=object)  # schema type irrelevant for test
     # Patch the method that adds structured_output
@@ -58,6 +54,5 @@ def test_structured_returns_runnable(monkeypatch):
     llm = get_llm("reason")
     runnable = structured(llm, object)  # schema type does not matter here
     assert hasattr(runnable, "run")
-    # The run method should be callable
     result = runnable.run()
     assert isinstance(result, dict)
