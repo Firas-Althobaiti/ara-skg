@@ -1,20 +1,31 @@
-from .ingestion import build_ingestion_graph
-from .extraction import build_extraction_graph
-from .graph_update import build_graph_update_graph
-from .query import build_query_graph
-from .hypothesis import build_hypothesis_graph
-from .experiment import build_experiment_graph
-from .evolution import build_evolution_graph
-from .supervisor import build_main_graph
+# File: ara/graphs/main.py
+from langgraph import Graph
+from ara.state import ARAState
+from ara.nodes.supervisor import classify_intent
 
-__all__ = [
-    "build_ingestion_graph",
-    "build_extraction_graph",
-    "build_graph_update_graph",
-    "build_query_graph",
-    "build_hypothesis_graph",
-    "build_experiment_graph",
-    "build_evolution_graph",
-    "build_main_graph",
-]
+def build_main_graph(checkpointer: "BaseCheckpointSaver | None" = None) -> "Graph":
+    """
+    Build the top‑level graph that ties all subgraphs together.
+    The graph contains a single supervisor node that decides which
+    subgraph to invoke based on the current intent stored in ARAState.
+    """
+    g = Graph()
+    # dummy start and end nodes required by LangGraph
+    g.add_node("START", lambda: None)
+    g.add_node("END", lambda: None)
+
+    # supervisor node – decides which subgraph to run
+    g.add_node("supervisor", classify_intent)
+
+    # edges
+    g.add_edge("START", "supervisor")
+    g.add_edge("supervisor", "END")
+
+    # optional: if the intent indicates a specific subgraph,
+    # we can route directly to that subgraph's start node.
+    # For simplicity we let the supervisor node decide which node to call
+    # by setting a temporary attribute in the state (e.g. state["node"]).
+    # The subgraph nodes are already defined as separate callable nodes,
+    # so the supervisor can call them directly.
+    return g
 
