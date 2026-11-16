@@ -1,3 +1,4 @@
+"""Re‑export all public schema models."""
 from .paper import Paper, Chunk
 from .entity import Entity, EntityRef
 from .triple import Triple, Provenance
