@@ -22,7 +22,8 @@ class NetworkXKnowledgeGraphClient:
     def _load(self):
         if self.storage_path.exists():
             data = json.loads(self.storage_path.read_text())
-            self.graph = json.loads(json.dumps(data))  # placeholder; real code would rebuild nx.Graph
+            # placeholder – real code would rebuild an nx.Graph
+            self.graph = {}
         else:
             self.graph = {}
 
