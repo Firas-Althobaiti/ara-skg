@@ -25,3 +25,4 @@ class EntityLinkingClient:
     async def bulk_link(self, entities: List[EntityRef]) -> List[EntityRef]:
         # Not needed for current implementation
         return entities
+
