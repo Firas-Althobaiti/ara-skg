@@ -36,7 +36,7 @@ class VectorStoreClient:
         result = await asyncio.to_thread(self.collection.query, query, n_results=k)
         return result["metadatas"]
 
-    async def add_paper(self, paper: "ara.schemas.paper.Paper") -> None:
+    async def add_paper(self, paper) -> None:
         """Add all chunks of a paper to the vector store."""
         chunk_list = []
         for chunk in paper.chunks:
