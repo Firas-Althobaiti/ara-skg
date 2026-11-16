@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from typing import List
 from pydantic import BaseModel, Field
 from .triple import Triple
 
+
 class Hypothesis(BaseModel):
+    """A scientific hypothesis derived from the knowledge graph."""
     id: str
     statement: str
     mechanism: str
