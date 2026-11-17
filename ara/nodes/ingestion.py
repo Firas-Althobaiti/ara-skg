@@ -51,9 +51,7 @@ async def chunk_papers(state: ARAState) -> dict[str, Any]:
                 )
         else:
             abstract = getattr(paper, "abstract", "")
-            paper.chunks.append(
-                Chunk(text=abstract, paper_id=paper.id, span=0, embedding=None)
-            )
+            paper.chunks.append(Chunk(text=abstract, paper_id=paper.id, span=0, embedding=None))
     return {"papers": papers, "chunks": state.get("chunks", [])}
 
 
