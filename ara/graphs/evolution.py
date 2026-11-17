@@ -1,10 +1,12 @@
 # File: ara/graphs/evolution.py
 from langgraph import Graph
+
 from ara.nodes.evolution import (
-    window_triples_node,
     detect_changes_node,
     summarize_evolution_node,
+    window_triples_node,
 )
+
 
 def build_evolution_graph():
     """
@@ -29,4 +31,3 @@ def build_evolution_graph():
         target="window",
     )
     return g
-

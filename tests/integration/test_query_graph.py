@@ -1,22 +1,23 @@
-import asyncio
 from ara.state import ARAState
+
 from ara.graphs.query import build_query_graph
 from ara.nodes.query import (
     classify_query_node,
-    nl2cypher_node,
     guard_cypher_node,
+    nl2cypher_node,
     run_cypher_node,
     synthesize_answer_node,
 )
 
+
 @pytest.mark.asyncio
 async def test_query_graph_flow():
     # Build the graph (ensures imports work)
-    graph = build_query_graph()
+    build_query_graph()
     # Create a minimal state with a query intent
     state = ARAState(
         task="list all genes",
-        intent="query",   # will be set by classify node
+        intent="query",  # will be set by classify node
         papers=[],
         chunks=[],
         extracted_triples=[],

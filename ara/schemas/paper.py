@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Chunk(BaseModel):
     """A chunk of text extracted from a paper."""
+
     text: str
     paper_id: str
     span: int
-    embedding: Optional[List[float]] = None
+    embedding: list[float] | None = None
 
 
 class Paper(BaseModel):
     """Domain model for a scientific paper."""
+
     id: str
     source: str  # e.g. "pubmed", "arxiv", "pdf"
     title: str
     abstract: str
-    authors: List[str]
+    authors: list[str]
     year: int
-    url: Optional[str] = None
-    full_text: Optional[str] = None
-    chunks: List[Chunk] = []
+    url: str | None = None
+    full_text: str | None = None
+    chunks: list[Chunk] = []

@@ -1,7 +1,7 @@
-import asyncio
 from ara.state import ARAState
-from ara.graphs.ingestion import build_ingestion_graph
-from ara.nodes.ingestion import route_sources, fetch_papers, chunk_papers, persist_chunks, error
+
+from ara.nodes.ingestion import chunk_papers, fetch_papers, persist_chunks, route_sources
+
 
 @pytest.mark.asyncio
 async def test_route_sources():
@@ -9,11 +9,13 @@ async def test_route_sources():
     result = await route_sources(state)
     assert result["source"] == "pubmed"
 
+
 @pytest.mark.asyncio
 async def test_route_sources_arxiv():
     state = ARAState(task="ingest arxiv")
     result = await route_sources(state)
     assert result["source"] == "arxiv"
+
 
 @pytest.mark.asyncio
 async def test_route_sources_pdf():
@@ -21,11 +23,13 @@ async def test_route_sources_pdf():
     result = await route_sources(state)
     assert result["source"] == "pdf"
 
+
 @pytest.mark.asyncio
 async def test_route_sources_unknown():
     state = ARAState(task="unknown")
     with pytest.raises(NotImplementedError):
         await route_sources(state)
+
 
 @pytest.mark.asyncio
 async def test_fetch_papers_mock(monkeypatch):
@@ -50,6 +54,7 @@ async def test_fetch_papers_mock(monkeypatch):
     assert len(papers) == 1
     assert papers[0].id == "PMID:001"
 
+
 @pytest.mark.asyncio
 async def test_chunk_papers():
     paper = Paper(
@@ -64,8 +69,9 @@ async def test_chunk_papers():
         chunks=[],
     )
     state = ARAState(papers=[paper])
-    chunks = await chunk_papers(state)
+    await chunk_papers(state)
     assert len(paper.chunks) == 2  # split into two ~300 char chunks
+
 
 @pytest.mark.asyncio
 async def test_persist_chunks(monkeypatch):
@@ -74,7 +80,9 @@ async def test_persist_chunks(monkeypatch):
         async def add_chunks(self, chunks, metadatas, ids):
             pass
 
-    monkeypatch.setattr("ara.clients.vector.VectorStoreClient", lambda persist_directory: DummyVectorClient())
+    monkeypatch.setattr(
+        "ara.clients.vector.VectorStoreClient", lambda persist_directory: DummyVectorClient()
+    )
 
     state = ARAState(
         papers=[

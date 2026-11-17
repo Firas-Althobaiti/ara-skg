@@ -1,11 +1,12 @@
-from typing import Dict, Any, List
-from ara.state import ARAState
-from ara.config import get_settings
-from ara.clients.kg_neo4j import Neo4jKnowledgeGraphClient
-import asyncio
 import time
+from typing import Any
 
-async def classify_query(state: ARAState) -> Dict[str, Any]:
+from ara.clients.kg_neo4j import Neo4jKnowledgeGraphClient
+from ara.config import get_settings
+from ara.state import ARAState
+
+
+async def classify_query(state: ARAState) -> dict[str, Any]:
     """
     Very simple intent classifier: if the task contains a question mark,
     treat it as a query; otherwise treat as a generic task.
@@ -15,7 +16,7 @@ async def classify_query(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def nl2cypher_node(state: ARAState) -> Dict[str, Any]:
+async def nl2cypher_node(state: ARAState) -> dict[str, Any]:
     """
     Very naive NL‑to‑Cypher translator.
     - If the intent is "query", generate a simple pattern that matches all entities.
@@ -32,7 +33,7 @@ async def nl2cypher_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def guard_cypher_node(state: ARAState) -> Dict[str, Any]:
+async def guard_cypher_node(state: ARAState) -> dict[str, Any]:
     """
     Reject queries that contain write‑operation keywords.
     """
@@ -44,7 +45,7 @@ async def guard_cypher_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def run_cypher_node(state: ARAState) -> Dict[str, Any]:
+async def run_cypher_node(state: ARAState) -> dict[str, Any]:
     """
     Execute the Cypher query using the Neo4j client.
     For demonstration we return dummy rows.
@@ -62,7 +63,7 @@ async def run_cypher_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def synthesize_answer_node(state: ARAState) -> Dict[str, Any]:
+async def synthesize_answer_node(state: ARAState) -> dict[str, Any]:
     """
     Combine subgraph context (if any) with the query result to produce a final answer.
     """

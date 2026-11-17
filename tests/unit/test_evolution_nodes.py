@@ -1,7 +1,9 @@
 # File: tests/unit/test_evolution_nodes.py
 import pytest
 from ara.state import ARAState
+
 from ara.nodes.evolution import detect_changes_node
+
 
 @pytest.mark.asyncio
 async def test_detect_changes_fading_event():
@@ -12,7 +14,12 @@ async def test_detect_changes_fading_event():
             "predicate": "expresses",
             "object": {"id": "proteinX", "name": "ProteinX", "type": "protein"},
             "confidence": 0.9,
-            "provenance": {"paper_id": "PMID:1", "chunk_id": "c1", "span": 0, "extracted_by": "tester"},
+            "provenance": {
+                "paper_id": "PMID:1",
+                "chunk_id": "c1",
+                "span": 0,
+                "extracted_by": "tester",
+            },
         }
     ]
     current = []  # geneA dropped
@@ -32,7 +39,7 @@ async def test_detect_changes_fading_event():
         params={},
         run_result={"result": [], "runtime": 0.0},
         final_answer="",
-        **{}
+        **{},
     )
     result = await detect_changes_node(state)
     events = result.get("evolution_events", [])

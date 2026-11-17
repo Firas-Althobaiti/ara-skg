@@ -12,4 +12,3 @@ Return a JSON list of events with fields: change_type, entity_id, before, after,
 """
 
 __all__ = ["SYSTEM_SUMMARIZE_EVOLUTION", "SYSTEM_DETECT_CHANGES"]
-

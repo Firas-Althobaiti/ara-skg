@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeVar, Callable
+from collections.abc import Callable
+from typing import Literal, TypeVar
+
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -38,5 +39,3 @@ def structured(llm: ChatOpenAI, schema: type[T]) -> Callable[[BaseModel], T]:
     instance of ``schema.
     """
     return llm.with_structured_output(schema)
-
-

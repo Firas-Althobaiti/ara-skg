@@ -1,11 +1,12 @@
 """Re‑export all public schema models."""
-from .paper import Paper, Chunk
+
 from .entity import Entity, EntityRef
-from .triple import Triple, Provenance
-from .hypothesis import Hypothesis
-from .experiment import ExperimentProposal
 from .evolution import EvolutionEvent
+from .experiment import ExperimentProposal
+from .hypothesis import Hypothesis
+from .paper import Chunk, Paper
 from .state import ARAState
+from .triple import Provenance, Triple
 
 __all__ = [
     "Paper",

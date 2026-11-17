@@ -1,17 +1,16 @@
 """PDF client – extract text from PDF files using PyMuPDF (fitz)."""
 
 import fitz  # PyMuPDF
-from typing import Union
-from ara.schemas.paper import Paper
+
 from ara.schemas.chunk import Chunk
-import io
+from ara.schemas.paper import Paper
 
 
 class PDFClient:
     def __init__(self):
         pass
 
-    async def parse_pdf(self, source: Union[str, bytes]) -> Paper:
+    async def parse_pdf(self, source: str | bytes) -> Paper:
         # Determine file path
         if isinstance(source, str) and source.startswith("http"):
             # For simplicity, treat HTTP URLs as local paths (real impl would download)
@@ -30,9 +29,7 @@ class PDFClient:
             # Very naive chunking: first 1000 characters per page
             chunk_text = text[:1000]
             if chunk_text:
-                chunks.append(
-                    Chunk(text=chunk_text, paper_id="", span=page_num, embedding=None)
-                )
+                chunks.append(Chunk(text=chunk_text, paper_id="", span=page_num, embedding=None))
 
         paper = Paper(
             id="",

@@ -1,11 +1,12 @@
 from langgraph import Graph
-from ara.state import ARAState
+
 from ara.nodes.hypothesis import (
+    critique_hypothesis_node,
     generate_hypotheses_node,
     ground_hypothesis_node,
     rank_hypotheses_node,
-    critique_hypothesis_node,
 )
+
 
 def build_hypothesis_graph():
     """
@@ -43,4 +44,3 @@ def build_hypothesis_graph():
         target="generate",
     )
     return g
-

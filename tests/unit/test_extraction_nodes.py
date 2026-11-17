@@ -1,11 +1,13 @@
 import pytest
 from ara.state import ARAState
+
 from ara.nodes.extraction import (
     extract_entities_node,
     extract_relations_node,
     link_entities_node,
     validate_triples_node,
 )
+
 
 @pytest.mark.asyncio
 async def test_extract_entities_node():
@@ -39,6 +41,7 @@ async def test_extract_entities_node():
     assert "extracted_entities" in result
     assert len(result["extracted_entities"]) > 0
 
+
 @pytest.mark.asyncio
 async def test_extract_relations_node():
     state = ARAState(
@@ -61,13 +64,19 @@ async def test_extract_relations_node():
         "url": None,
         "full_text": "GeneA - expresses - ProteinX",
         "chunks": [
-            {"text": "GeneA - expresses - ProteinX", "paper_id": "PMID:001", "span": 0, "embedding": None}
+            {
+                "text": "GeneA - expresses - ProteinX",
+                "paper_id": "PMID:001",
+                "span": 0,
+                "embedding": None,
+            }
         ],
     }
     state["papers"] = [paper]
     result = await extract_relations_node(state)
     assert "extracted_triples" in result
     assert len(result["extracted_triples"]) > 0
+
 
 @pytest.mark.asyncio
 async def test_link_entities_node():
@@ -88,6 +97,7 @@ async def test_link_entities_node():
     assert len(result["linked_entities"]) > 0
     # verify that resolved name matches expected alias
     assert any(e["entity"].name == "proteinX" for e in result["linked_entities"])
+
 
 @pytest.mark.asyncio
 async def test_validate_triples_node():

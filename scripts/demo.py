@@ -5,9 +5,15 @@ from ara import get_settings, get_logger
 from ara.tools import TOOLS
 from ara.clients.kg_networkx import NetworkXKnowledgeGraphClient  # fallback client
 from ara.nodes.ingestion import ingest_papers
-from ara.nodes.extraction import extract_entities, extract_relations, link_entities, validate_triples
+from ara.nodes.extraction import (
+    extract_entities,
+    extract_relations,
+    link_entities,
+    validate_triples,
+)
 from ara.nodes.graph_update import resolve_triples, ensure_schema, upsert_kg
 from ara.nodes.query import classify_query, nl2cypher, guard_cypher, run_cypher, synthesize_answer
+
 
 async def run_pipeline():
     logger = get_logger()
@@ -37,6 +43,7 @@ async def run_pipeline():
 
     logger.info("Demo pipeline completed")
     print("Pipeline finished.")
+
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())

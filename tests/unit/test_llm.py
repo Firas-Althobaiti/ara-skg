@@ -1,7 +1,4 @@
-import pytest
 from ara.llm import get_llm, structured
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
 
 
 class DummyChatOpenAI:
@@ -44,7 +41,7 @@ def test_get_llm_fast(monkeypatch):
 
 
 def test_structured_returns_runnable(monkeypatch):
-    dummy_llm = DummyChatOpenAI()
+    DummyChatOpenAI()
     dummy_runnable = DummyRunnable(schema=object)  # schema type irrelevant for test
     # Patch the method that adds structured_output
     monkeypatch.setattr(

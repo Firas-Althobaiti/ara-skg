@@ -1,9 +1,9 @@
 """PubMed client – async search and basic paper extraction."""
 
 import httpx
-from typing import List
-from ara.schemas.paper import Paper
+
 from ara.schemas.chunk import Chunk
+from ara.schemas.paper import Paper
 
 
 class PubMedClient:
@@ -17,7 +17,7 @@ class PubMedClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def search_pubmed(self, query: str, retmax: int = 20) -> List[Paper]:
+    async def search_pubmed(self, query: str, retmax: int = 20) -> list[Paper]:
         # ESearch
         params = {"db": "pubmed", "term": query, "retmode": "json", "retmax": retmax}
         esearch = await self._request("esearch", params)

@@ -1,11 +1,12 @@
 from langgraph import Graph
-from ara.state import ARAState
+
 from ara.nodes.graph_update import (
-    resolve_triples_node,
     ensure_schema_node,
-    upsert_kg_node,
+    resolve_triples_node,
     rollback_on_error,
+    upsert_kg_node,
 )
+
 
 def build_graph_update_graph():
     """
@@ -42,4 +43,3 @@ def build_graph_update_graph():
     g.add_edge("upsert_kg", "END")  # success path
 
     return g
-

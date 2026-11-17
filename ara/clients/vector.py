@@ -1,8 +1,6 @@
 """Vector store client wrapper around ChromaDB (or any compatible store)."""
 
 import asyncio
-from typing import List, Dict, Any
-from ara.schemas.paper import Chunk
 
 try:
     import chromadb
@@ -24,14 +22,14 @@ class VectorStoreClient:
             ),
         )
 
-    async def add_chunks(self, chunks: List[Dict]) -> None:
+    async def add_chunks(self, chunks: list[dict]) -> None:
         """Add a list of chunk dicts (text + metadata) to the vector store."""
         documents = [c["text"] for c in chunks]
         metadatas = [c["metadata"] for c in chunks]
         ids = [f"{c['paper_id']}_{i}" for i, c in enumerate(chunks)]
         await asyncio.to_thread(self.collection.add, documents, metadatas, ids)
 
-    async def search(self, query: str, k: int = 10) -> List[Dict]:
+    async def search(self, query: str, k: int = 10) -> list[dict]:
         """Search for similar chunks and return their metadata."""
         result = await asyncio.to_thread(self.collection.query, query, n_results=k)
         return result["metadatas"]

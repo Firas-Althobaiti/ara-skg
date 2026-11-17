@@ -1,15 +1,15 @@
 import json
+
 from ara.schemas import (
-    Paper,
     Chunk,
     Entity,
     EntityRef,
-    Triple,
-    Provenance,
-    Hypothesis,
-    ExperimentProposal,
     EvolutionEvent,
-    ARAState,
+    ExperimentProposal,
+    Hypothesis,
+    Paper,
+    Provenance,
+    Triple,
 )
 
 
@@ -155,4 +155,5 @@ def test_evolution_change_type():
 def test_ara_state_import():
     # Import should not raise and state should be a TypedDict
     from ara.schemas.state import ARAState
+
     assert isinstance(ARAState, type)

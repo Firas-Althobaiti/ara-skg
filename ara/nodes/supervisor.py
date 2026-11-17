@@ -1,10 +1,12 @@
 # File: ara/nodes/supervisor.py
 """Supervisor node – routes the current task to the appropriate subgraph."""
 
-from typing import Dict, Any
+from typing import Any
+
 from ara.state import ARAState
 
-async def classify_intent_node(state: ARAState) -> Dict[str, Any]:
+
+async def classify_intent_node(state: ARAState) -> dict[str, Any]:
     """
     Inspect the task description and decide which subgraph should handle it.
     Sets ``state['route'] to one of:
@@ -27,7 +29,8 @@ async def classify_intent_node(state: ARAState) -> Dict[str, Any]:
         return {"route": "evolution"}
     return {"route": "end"}
 
-async def critic_node(state: ARAState) -> Dict[str, Any]:
+
+async def critic_node(state: ARAState) -> dict[str, Any]:
     """
     Final grounding check – if errors are present, flag them for replanning.
     """
@@ -35,11 +38,12 @@ async def critic_node(state: ARAState) -> Dict[str, Any]:
         state["needs_replan"] = True
     return state
 
-async def replan_node(state: ARAState) -> Dict[str, Any]:
+
+async def replan_node(state: ARAState) -> dict[str, Any]:
     """Re‑evaluate the plan; clear errors and route back to the supervisor."""
     state["errors"] = []
     state["needs_replan"] = False
     return state
 
-__all__ = ["classify_intent_node", "critic_node", "replan_node"]
 
+__all__ = ["classify_intent_node", "critic_node", "replan_node"]

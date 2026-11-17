@@ -1,12 +1,13 @@
 from langgraph import Graph
-from ara.state import ARAState
+
 from ara.nodes.query import (
     classify_query_node,
-    nl2cypher_node,
     guard_cypher_node,
+    nl2cypher_node,
     run_cypher_node,
     synthesize_answer_node,
 )
+
 
 def build_query_graph():
     """

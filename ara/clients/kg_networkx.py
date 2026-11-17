@@ -1,14 +1,14 @@
 """NetworkX‑backed KnowledgeGraphClient (fallback / test implementation)."""
 
-import json
 import asyncio
+import json
 from pathlib import Path
-from typing import List, Dict, Any
-from ara.schemas.triple import Triple
-from ara.schemas.entity import EntityRef
-from ara.schemas.provenance import Provenance
+from typing import Any
 
-KGDelta = Dict[str, Any]  # simple delta representation
+from ara.schemas.entity import EntityRef
+from ara.schemas.triple import Triple
+
+KGDelta = dict[str, Any]  # simple delta representation
 
 
 class NetworkXKnowledgeGraphClient:
@@ -21,7 +21,7 @@ class NetworkXKnowledgeGraphClient:
 
     def _load(self):
         if self.storage_path.exists():
-            data = json.loads(self.storage_path.read_text())
+            json.loads(self.storage_path.read_text())
             # placeholder – real code would rebuild an nx.Graph
             self.graph = {}
         else:
@@ -29,10 +29,7 @@ class NetworkXKnowledgeGraphClient:
 
     def _save(self):
         data = {
-            "nodes": [
-                {"id": n, "properties": self.graph[n].copy()}
-                for n in self.graph
-            ],
+            "nodes": [{"id": n, "properties": self.graph[n].copy()} for n in self.graph],
             "edges": [
                 {"source": u, "target": v, "properties": self.graph[(u, v)].copy()}
                 for u, v in self.graph
@@ -43,7 +40,7 @@ class NetworkXKnowledgeGraphClient:
     async def ensure_schema(self) -> None:
         self._load()
 
-    async def upsert_triples(self, triples: List[Triple]) -> KGDelta:
+    async def upsert_triples(self, triples: list[Triple]) -> KGDelta:
         delta = {"added": 0, "updated": 0}
 
         async def _run():
@@ -88,13 +85,13 @@ class NetworkXKnowledgeGraphClient:
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
         return EntityRef(name=name, type=entity_type, id=name)
 
-    async def query_cypher(self, cypher: str, params: dict | None = None) -> List[dict]:
+    async def query_cypher(self, cypher: str, params: dict | None = None) -> list[dict]:
         raise NotImplementedError("Cypher queries not supported by NetworkX client")
 
-    async def subgraph(self, entity_ids: List[str], depth: int = 2) -> List[Triple]:
+    async def subgraph(self, entity_ids: list[str], depth: int = 2) -> list[Triple]:
         raise NotImplementedError
 
-    async def temporal_query(self, window: str) -> List[Triple]:
+    async def temporal_query(self, window: str) -> list[Triple]:
         raise NotImplementedError
 
     async def ensure_schema(self) -> None:

@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from pydantic import BaseSettings, Field, ValidationError
-from typing import Literal, Optional
-import os
 from functools import lru_cache
+
+from pydantic import BaseSettings, Field
 
 
 class Settings(BaseSettings):
     """All configuration values are read from environment variables."""
 
     # LLM settings (optional – can be overridden per‑tier)
-    OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    OPENAI_API_KEY: str | None = Field(default=None, env="OPENAI_API_KEY")
 
     # Neo4j connection
     NEO4J_URI: str = Field(default="bolt://localhost:7687", env="NEO4J_URI")
@@ -24,7 +23,7 @@ class Settings(BaseSettings):
 
     # LangChain / LangSmith tracing (optional)
     LANGCHAIN_TRACING_V2: bool = Field(default=True, env="LANGCHAIN_TRACING_V2")
-    LANGCHAIN_API_KEY: Optional[str] = Field(default=None, env="LANGCHAIN_API_KEY")
+    LANGCHAIN_API_KEY: str | None = Field(default=None, env="LANGCHAIN_API_KEY")
     LANGSMITH_PROJECT: str = Field(default="ara-skg", env="LANGSMITH_PROJECT")
 
     class Config:
@@ -34,7 +33,7 @@ class Settings(BaseSettings):
 
     @classmethod
     @lru_cache(maxsize=1)
-    def get_settings(cls) -> "Settings":
+    def get_settings(cls) -> Settings:
         """Cached singleton – ensures settings are created only once."""
         return cls()
 
@@ -42,4 +41,3 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Convenient accessor used throughout the codebase."""
     return Settings.get_settings()
-

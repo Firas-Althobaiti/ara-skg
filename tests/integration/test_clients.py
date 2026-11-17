@@ -1,11 +1,9 @@
-import asyncio
-from ara.clients.kg import KnowledgeGraphClient
-from ara.clients.neo4j import Neo4jKnowledgeGraphClient
-from ara.clients.vector import VectorStoreClient
-from ara.clients.pubmed import PubMedClient
 from ara.clients.arxiv import ArXivClient
-from ara.clients.pdf import PDFClient
 from ara.clients.entity_linking import EntityLinkingClient
+from ara.clients.neo4j import Neo4jKnowledgeGraphClient
+from ara.clients.pdf import PDFClient
+from ara.clients.pubmed import PubMedClient
+from ara.clients.vector import VectorStoreClient
 
 
 async def test_client_instantiation():
@@ -36,5 +34,3 @@ async def test_client_instantiation():
     linker = EntityLinkingClient()
     entity = await linker.link_entity("p53", "protein")
     assert entity.name == "proteinX"
-
-

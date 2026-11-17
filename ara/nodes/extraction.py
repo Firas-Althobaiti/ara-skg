@@ -1,12 +1,12 @@
-from typing import Dict, Any
-from ara.state import ARAState
-from ara.schemas.entity import Entity, EntityRef
-from ara.schemas.triple import Triple, Provenance
-from ara.schemas.paper import Paper, Chunk
-from ara.clients.entity_linking import EntityLinkingClient
-import asyncio
+from typing import Any
 
-async def extract_entities_node(state: ARAState) -> Dict[str, Any]:
+from ara.clients.entity_linking import EntityLinkingClient
+from ara.schemas.entity import EntityRef
+from ara.schemas.triple import Provenance, Triple
+from ara.state import ARAState
+
+
+async def extract_entities_node(state: ARAState) -> dict[str, Any]:
     """
     Extract entities from paper text (chunks). For demonstration we treat each chunk
     as containing a comma‑separated list of entity names.
@@ -24,7 +24,7 @@ async def extract_entities_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def extract_relations_node(state: ARAState) -> Dict[str, Any]:
+async def extract_relations_node(state: ARAState) -> dict[str, Any]:
     """
     Extract triples (subject, predicate, object) from text.
     For demo we treat each chunk's text as containing triples separated by ';'
@@ -58,7 +58,7 @@ async def extract_relations_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def link_entities_node(state: ARAState) -> Dict[str, Any]:
+async def link_entities_node(state: ARAState) -> dict[str, Any]:
     """
     Resolve entity names to canonical IDs using the EntityLinkingClient.
     """
@@ -74,7 +74,7 @@ async def link_entities_node(state: ARAState) -> Dict[str, Any]:
     return state
 
 
-async def validate_triples_node(state: ARAState) -> Dict[str, Any]:
+async def validate_triples_node(state: ARAState) -> dict[str, Any]:
     """
     Critic: keep only triples with confidence >= 0.7 and valid provenance.
     """

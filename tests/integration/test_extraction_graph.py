@@ -1,5 +1,3 @@
-import asyncio
-from ara.state import ARAState
 from ara.graphs.extraction import build_extraction_graph
 from ara.nodes.extraction import (
     extract_entities_node,
@@ -8,10 +6,11 @@ from ara.nodes.extraction import (
     validate_triples_node,
 )
 
+
 @pytest.mark.asyncio
 async def test_extraction_graph_flow():
     # Build the graph (ensures imports work)
-    graph = build_extraction_graph()
+    build_extraction_graph()
     # Create a simple state with a paper and a chunk containing a triple
     paper = {
         "id": "PMID:001",
@@ -23,7 +22,12 @@ async def test_extraction_graph_flow():
         "url": None,
         "full_text": "GeneA - expresses - ProteinX",
         "chunks": [
-            {"text": "GeneA - expresses - ProteinX", "paper_id": "PMID:001", "span": 0, "embedding": None}
+            {
+                "text": "GeneA - expresses - ProteinX",
+                "paper_id": "PMID:001",
+                "span": 0,
+                "embedding": None,
+            }
         ],
     }
     # Build a minimal state dict (the Graph expects ARAState, but we can feed a dict)

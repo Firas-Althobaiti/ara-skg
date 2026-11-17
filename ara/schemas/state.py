@@ -1,31 +1,29 @@
 from __future__ import annotations
 
-from typing import TypedDict, List, Dict, Optional
-from .paper import Paper
-from .entity import Entity
-from .triple import Triple
-from .hypothesis import Hypothesis
+from typing import TypedDict
+
 from .experiment import ExperimentProposal
-from .evolution import EvolutionEvent
+from .hypothesis import Hypothesis
+from .paper import Paper
 
 
 class ARAState(TypedDict, total=False):
     """Runtime state shared between LangGraph nodes."""
-    messages: List[str]
+
+    messages: list[str]
     task: str
     intent: str
-    papers: List[Paper]
-    chunks: List[Dict]  # raw chunk dicts (text, metadata, optional embedding)
-    extracted_triples: List[Dict]  # raw triple dicts before resolution
-    resolved_triples: List[Dict]  # triples with canonical EntityRef IDs
-    kg_delta: List[Dict]  # changes applied to the KG (add/remove)
-    retrieved_subgraph: List[Dict]  # subgraph relevant to a query
-    hypotheses: List[Hypothesis]
-    experiments: List[ExperimentProposal]
+    papers: list[Paper]
+    chunks: list[dict]  # raw chunk dicts (text, metadata, optional embedding)
+    extracted_triples: list[dict]  # raw triple dicts before resolution
+    resolved_triples: list[dict]  # triples with canonical EntityRef IDs
+    kg_delta: list[dict]  # changes applied to the KG (add/remove)
+    retrieved_subgraph: list[dict]  # subgraph relevant to a query
+    hypotheses: list[Hypothesis]
+    experiments: list[ExperimentProposal]
     evolution_report: str
     critique: str
-    errors: List[str]
-    next_step: Optional[str]
-    provenance: Dict[str, str]
-    budget: Optional[float]
-
+    errors: list[str]
+    next_step: str | None
+    provenance: dict[str, str]
+    budget: float | None

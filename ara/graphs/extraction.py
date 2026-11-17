@@ -1,11 +1,12 @@
 from langgraph import Graph
-from ara.state import ARAState
+
 from ara.nodes.extraction import (
     extract_entities_node,
     extract_relations_node,
     link_entities_node,
     validate_triples_node,
 )
+
 
 def build_extraction_graph():
     """
@@ -35,4 +36,3 @@ def build_extraction_graph():
     g.add_edge("link_entities", "validate_triples")
     g.add_edge("validate_triples", "END")
     return g
-

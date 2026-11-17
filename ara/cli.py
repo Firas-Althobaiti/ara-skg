@@ -1,8 +1,9 @@
 import typer
-from ara import get_settings, get_logger
-from ara.tools import TOOLS
+
+from ara import get_logger
 
 app = typer.Typer(help="ARA‑SKG command line interface")
+
 
 @app.command()
 def demo():
@@ -13,8 +14,10 @@ def demo():
     print("Demo completed successfully.")
     logger.info("Demo finished")
 
+
 def main() -> None:
     app()
+
 
 if __name__ == "__main__":
     main()

@@ -1,16 +1,17 @@
-import asyncio
 from ara.state import ARAState
+
 from ara.graphs.evolution import build_evolution_graph
 from ara.nodes.evolution import (
-    window_triples_node,
     detect_changes_node,
     summarize_evolution_node,
+    window_triples_node,
 )
+
 
 @pytest.mark.asyncio
 async def test_evolution_graph_flow():
     # Build the evolution graph (ensures imports work)
-    graph = build_evolution_graph()
+    build_evolution_graph()
 
     # Create a minimal state with some valid triples for current and previous windows
     state = ARAState(
@@ -26,14 +27,24 @@ async def test_evolution_graph_flow():
                 "predicate": "expresses",
                 "object": {"name": "proteinX", "type": "protein", "id": "proteinX"},
                 "confidence": 0.9,
-                "provenance": {"paper_id": "PMID:001", "chunk_id": "c1", "span": 0, "extracted_by": "tester"},
+                "provenance": {
+                    "paper_id": "PMID:001",
+                    "chunk_id": "c1",
+                    "span": 0,
+                    "extracted_by": "tester",
+                },
             },
             {
                 "subject": {"name": "proteinX", "type": "protein", "id": "proteinX"},
                 "predicate": "binds",
                 "object": {"name": "proteinY", "type": "protein", "id": "proteinY"},
                 "confidence": 0.8,
-                "provenance": {"paper_id": "PMID:001", "chunk_id": "c1", "span": 0, "extracted_by": "tester"},
+                "provenance": {
+                    "paper_id": "PMID:001",
+                    "chunk_id": "c1",
+                    "span": 0,
+                    "extracted_by": "tester",
+                },
             },
         ],
         prev_valid_triples=[],  # previous window empty for this test

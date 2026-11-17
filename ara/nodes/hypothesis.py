@@ -1,9 +1,8 @@
-from typing import Dict, Any, List
+from typing import Any
+
+from ara.schemas import Hypothesis
 from ara.state import ARAState
-from ara.schemas import Hypothesis, HypothesisGenerationResult
-from ara.config import get_settings
-from tenacity import retry, stop_after_attempt, wait_exponential
-import asyncio
+
 
 # ----------------------------------------------------------------------
 # Helper: dummy LLM call (mocked). In a real system this would call the LLM.
@@ -12,7 +11,8 @@ class DummyMessage:
     def __init__(self, content: str):
         self.content = content
 
-async def _call_llm(prompt: str) -> List[Hypothesis]:
+
+async def _call_llm(prompt: str) -> list[Hypothesis]:
     """
     Mock LLM call that returns a list of 3 dummy Hypothesis objects.
     In production this would be:
@@ -59,7 +59,8 @@ async def _call_llm(prompt: str) -> List[Hypothesis]:
     )
     return [hyp1, hyp2, hyp3]
 
-async def generate_hypotheses_node(state: ARAState) -> Dict[str, Any]:
+
+async def generate_hypotheses_node(state: ARAState) -> dict[str, Any]:
     """Generate a list of hypotheses based on the current context."""
     # In a real implementation we would pass the current context (e.g., valid triples)
     # to the LLM. Here we simply call the dummy LLM.
@@ -67,10 +68,11 @@ async def generate_hypotheses_node(state: ARAState) -> Dict[str, Any]:
     state["hypotheses"] = hypotheses
     return state
 
-async def ground_hypothesis_node(state: ARAState) -> Dict[str, Any]:
+
+async def ground_hypothesis_node(state: ARAState) -> dict[str, Any]:
     """Attach supporting triples to each hypothesis based on entity overlap."""
-    valid_triples: List[dict] = state.get("valid_triples", [])
-    hypotheses: List[Hypothesis] = state.get("hypotheses", [])
+    valid_triples: list[dict] = state.get("valid_triples", [])
+    hypotheses: list[Hypothesis] = state.get("hypotheses", [])
 
     for hyp in hypotheses:
         # naive matching: if the hypothesis mentions any entity that appears in a triple,
@@ -89,9 +91,10 @@ async def ground_hypothesis_node(state: ARAState) -> Dict[str, Any]:
 
     return state
 
-async def rank_hypotheses_node(state: ARAState) -> Dict[str, Any]:
+
+async def rank_hypotheses_node(state: ARAState) -> dict[str, Any]:
     """Rank hypotheses by combined novelty + plausibility score (descending)."""
-    hyps: List[Hypothesis] = state.get("hypotheses", [])
+    hyps: list[Hypothesis] = state.get("hypotheses", [])
     # sort by combined score
     hyps_sorted = sorted(
         hyps,
@@ -101,9 +104,10 @@ async def rank_hypotheses_node(state: ARAState) -> Dict[str, Any]:
     state["hypotheses"] = hyps_sorted
     return state
 
-async def critique_hypothesis_node(state: ARAState) -> Dict[str, Any]:
+
+async def critique_hypothesis_node(state: ARAState) -> dict[str, Any]:
     """Reject hypotheses that have fewer than two supporting triples."""
-    hyps: List[Hypothesis] = state.get("hypotheses", [])
+    hyps: list[Hypothesis] = state.get("hypotheses", [])
     valid_hyps = []
     for hyp in hyps:
         supporting = getattr(hyp, "supporting", [])

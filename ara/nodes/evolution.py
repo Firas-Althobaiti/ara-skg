@@ -1,10 +1,11 @@
 # File: ara/nodes/evolution.py
-from typing import Dict, Any, List
-from ara.state import ARAState
 from collections import Counter
-import asyncio
+from typing import Any
 
-async def window_triples_node(state: ARAState) -> Dict[str, Any]:
+from ara.state import ARAState
+
+
+async def window_triples_node(state: ARAState) -> dict[str, Any]:
     """
     Return the triples for the current time window.
     In this simple implementation the current window is `valid_triples`
@@ -12,10 +13,12 @@ async def window_triples_node(state: ARAState) -> Dict[str, Any]:
     """
     return state
 
-def _key(triple: Dict[str, Any]):
+
+def _key(triple: dict[str, Any]):
     return (triple["subject"]["id"], triple["predicate"], triple["object"]["id"])
 
-async def detect_changes_node(state: ARAState) -> Dict[str, Any]:
+
+async def detect_changes_node(state: ARAState) -> dict[str, Any]:
     """
     Detect emerging, fading, and relation_shift events between the
     previous and current windows.
@@ -26,31 +29,35 @@ async def detect_changes_node(state: ARAState) -> Dict[str, Any]:
     current_set = {_key(t) for t in current}
     previous_set = {_key(t) for t in previous}
 
-    events: List[Dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
 
     # Emerging: present now, absent before
     for t in current:
         if _key(t) not in previous_set:
-            events.append({
-                "window": "current",
-                "entity_id": t["subject"]["id"],
-                "change_type": "emerging",
-                "before": "",
-                "after": t["predicate"],
-                "evidence": [t.get("provenance", {})],
-            })
+            events.append(
+                {
+                    "window": "current",
+                    "entity_id": t["subject"]["id"],
+                    "change_type": "emerging",
+                    "before": "",
+                    "after": t["predicate"],
+                    "evidence": [t.get("provenance", {})],
+                }
+            )
 
     # Fading: present before, absent now
     for t in previous:
         if _key(t) not in current_set:
-            events.append({
-                "window": "previous",
-                "entity_id": t["subject"]["id"],
-                "change_type": "fading",
-                "before": t["predicate"],
-                "after": "",
-                "evidence": [t.get("provenance", {})],
-            })
+            events.append(
+                {
+                    "window": "previous",
+                    "entity_id": t["subject"]["id"],
+                    "change_type": "fading",
+                    "before": t["predicate"],
+                    "after": "",
+                    "evidence": [t.get("provenance", {})],
+                }
+            )
 
     # Relation shift: predicate distribution change > 50 %
     cur_pred = Counter(t["predicate"] for t in current)
@@ -62,19 +69,22 @@ async def detect_changes_node(state: ARAState) -> Dict[str, Any]:
         total = max(cur_count + prev_count, 1)
         diff = abs(cur_count - prev_count) / total
         if diff > 0.5:
-            events.append({
-                "window": "current",
-                "entity_id": None,
-                "change_type": "relation_shift",
-                "before": f"prev_count={prev_count}",
-                "after": f"cur_count={cur_count}",
-                "evidence": [],
-            })
+            events.append(
+                {
+                    "window": "current",
+                    "entity_id": None,
+                    "change_type": "relation_shift",
+                    "before": f"prev_count={prev_count}",
+                    "after": f"cur_count={cur_count}",
+                    "evidence": [],
+                }
+            )
 
     state["evolution_events"] = events
     return state
 
-async def summarize_evolution_node(state: ARAState) -> Dict[str, Any]:
+
+async def summarize_evolution_node(state: ARAState) -> dict[str, Any]:
     """Produce a markdown report from the detected evolution events."""
     events = state.get("evolution_events", [])
     if not events:
@@ -89,5 +99,6 @@ async def summarize_evolution_node(state: ARAState) -> Dict[str, Any]:
         report = "\n".join(lines)
     state["evolution_report"] = report
     return state
+
 
 __all__ = ["window_triples_node", "detect_changes_node", "summarize_evolution_node"]

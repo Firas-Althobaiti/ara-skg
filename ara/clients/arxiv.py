@@ -1,9 +1,9 @@
 """ArXiv client – async search of the arXiv API."""
 
 import httpx
-from typing import List
-from ara.schemas.paper import Paper
+
 from ara.schemas.chunk import Chunk
+from ara.schemas.paper import Paper
 
 
 class ArXivClient:
@@ -15,7 +15,7 @@ class ArXivClient:
     async def close(self):
         await self.http.aclose()
 
-    async def search_arxiv(self, query: str, max_results: int = 10) -> List[Paper]:
+    async def search_arxiv(self, query: str, max_results: int = 10) -> list[Paper]:
         url = f"{self.BASE_URL}?search_query={query}&max_results={max_results}"
         resp = await self.http.get(url)
         resp.raise_for_status()
@@ -45,4 +45,3 @@ class ArXivClient:
 
     async def close(self):
         await self.http.aclose()
-

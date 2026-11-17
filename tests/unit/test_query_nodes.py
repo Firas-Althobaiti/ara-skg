@@ -1,12 +1,14 @@
 import pytest
 from ara.state import ARAState
+
 from ara.nodes.query import (
     classify_query_node,
-    nl2cypher_node,
     guard_cypher_node,
+    nl2cypher_node,
     run_cypher_node,
     synthesize_answer_node,
 )
+
 
 @pytest.mark.asyncio
 async def test_classify_query():
@@ -61,16 +63,22 @@ async def test_run_cypher_node_success():
     class MockClient:
         async def query_cypher(self, cypher, params):
             return [{"name": "GeneA", "id": "1"}]
-    mock_client = MockClient()
+
+    MockClient()
+
     # patch get_settings to return a client with this mock
     class DummySettings:
         def get_settings(cls):
             class Inner:
                 client = MockClient()
+
             return Inner()
+
         return Inner()
+
     # patch get_settings
     import ara.config
+
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(ara.config, "get_settings", lambda: DummySettings().get_settings())
     state = ARAState(
@@ -90,7 +98,9 @@ async def test_synthesize_answer_node():
     state = ARAState(
         task="explain gene A",
         intent="query",
-        run_result={"result": [{"name": "GeneA", "description": "Gene A is a transcription factor"}]},
+        run_result={
+            "result": [{"name": "GeneA", "description": "Gene A is a transcription factor"}]
+        },
         final_answer="",
     )
     state = await synthesize_answer_node(state)

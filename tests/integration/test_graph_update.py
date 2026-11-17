@@ -1,13 +1,9 @@
-import asyncio
-from ara.state import ARAState
-from ara.graphs.graph_update import build_graph_update_graph
 from ara.nodes.graph_update import (
-    resolve_triples_node,
-    ensure_schema_node,
-    upsert_kg_node,
     rollback_on_error,
+    upsert_kg_node,
 )
-from ara.schemas.triple import Triple, Provenance
+from ara.schemas.triple import Provenance, Triple
+
 
 # Simple in-memory mock client for testing
 class MockKGClient:
@@ -27,15 +23,20 @@ class MockKGClient:
         # no-op for this test
         pass
 
+
 async def test_upsert_idempotent(monkeypatch):
     mock_client = MockKGClient()
+
     # inject client via settings
     class DummySettings:
         def get_settings(cls):
             class Inner:
                 client = mock_client
+
             return Inner()
+
         return Inner()
+
     monkeypatch.setattr("ara.config.get_settings", lambda: DummySettings())
 
     # Build state with two identical triples (duplicate keys)
@@ -66,7 +67,7 @@ async def test_upsert_idempotent(monkeypatch):
         "params": {},
         "run_result": {"result": [], "runtime": 0.0},
         "final_answer": "",
-        **{}
+        **{},
     }
 
     # First upsert
@@ -76,6 +77,7 @@ async def test_upsert_idempotent(monkeypatch):
 
     # Verify that the mock client saw only one unique key
     assert len(mock_client.added_keys) == 1
+
 
 async def test_mid_batch_failure(monkeypatch):
     # mock client that raises on second upsert call
@@ -97,8 +99,11 @@ async def test_mid_batch_failure(monkeypatch):
         def get_settings(cls):
             class Inner:
                 client = FailingKGClient()
+
             return Inner()
+
         return Inner()
+
     monkeypatch.setattr("ara.config.get_settings", lambda: DummySettings())
 
     # Build state with two triples (will cause failure on second upsert)
@@ -141,10 +146,10 @@ async def test_mid_batch_failure(monkeypatch):
         "params": {},
         "run_result": {"result": [], "runtime": 0.0},
         "final_answer": "",
-        **{}
+        **{},
     }
 
-    await upsert_kg_node(state)          # first call succeeds
-    await rollback_on_error(state)       # handle error (rolls back delta)
+    await upsert_kg_node(state)  # first call succeeds
+    await rollback_on_error(state)  # handle error (rolls back delta)
     # After rollback delta should be cleared
     assert state["kg_delta"] == []

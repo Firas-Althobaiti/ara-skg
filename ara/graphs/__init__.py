@@ -1,12 +1,13 @@
 # File: ara/graphs/__init__.py (updated)
 """Namespace for graph building functions."""
-from .ingestion import build_ingestion_graph
+
+from .evolution import build_evolution_graph
+from .experiment import build_experiment_graph
 from .extraction import build_extraction_graph
 from .graph_update import build_graph_update_graph
-from .query import build_query_graph
 from .hypothesis import build_hypothesis_graph
-from .experiment import build_experiment_graph
-from .evolution import build_evolution_graph
+from .ingestion import build_ingestion_graph
+from .query import build_query_graph
 from .supervisor import build_main_graph
 
 __all__ = [

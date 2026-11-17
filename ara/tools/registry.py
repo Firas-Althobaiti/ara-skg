@@ -1,9 +1,6 @@
 """Central registry of tool names used across the package."""
 
-from typing import List
-
-
-TOOLS: List[str] = [
+TOOLS: list[str] = [
     "pubmed",
     "arxiv",
     "pdf",

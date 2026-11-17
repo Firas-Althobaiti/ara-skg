@@ -1,7 +1,9 @@
 # File: tests/unit/test_experiment_nodes.py
 import pytest
 from ara.state import ARAState
-from ara.nodes.experiment import validate_feasibility_node, propose_experiment_node
+
+from ara.nodes.experiment import propose_experiment_node, validate_feasibility_node
+
 
 @pytest.mark.asyncio
 async def test_validate_feasibility_rejects_missing_controls():
@@ -21,7 +23,7 @@ async def test_validate_feasibility_rejects_missing_controls():
         params={},
         run_result={"result": [], "runtime": 0.0},
         final_answer="",
-        **{}
+        **{},
     )
     # proposal missing controls
     state["experiment"] = {
@@ -29,7 +31,7 @@ async def test_validate_feasibility_rejects_missing_controls():
         "hypothesis_id": "hyp_1",
         "assay": "assay",
         "model_system": "cells",
-        "controls": [],          # ← missing
+        "controls": [],  # ← missing
         "readouts": ["viability"],
         "expected_outcomes": ["x"],
         "risks": [],
@@ -38,6 +40,7 @@ async def test_validate_feasibility_rejects_missing_controls():
     result = await validate_feasibility_node(state)
     assert "experiment_error" in result
     assert "controls" in result["experiment_error"]
+
 
 @pytest.mark.asyncio
 async def test_propose_experiment_node_success():
@@ -57,7 +60,7 @@ async def test_propose_experiment_node_success():
         params={},
         run_result={"result": [], "runtime": 0.0},
         final_answer="",
-        **{}
+        **{},
     )
     hyp = {
         "id": "hyp_0",

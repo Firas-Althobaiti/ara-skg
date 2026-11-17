@@ -1,8 +1,9 @@
 # File: ara/nodes/experiment.py
-from typing import Dict, Any, List
-from ara.state import ARAState
+from typing import Any
+
 from ara.schemas import ExperimentProposal
-import asyncio
+from ara.state import ARAState
+
 
 async def _mock_llm_propose(hypothesis_id: str, statement: str) -> ExperimentProposal:
     """Mock LLM call – in production use structured(llm, ExperimentProposal)."""
@@ -18,7 +19,8 @@ async def _mock_llm_propose(hypothesis_id: str, statement: str) -> ExperimentPro
         citations=["PMID:001"],
     )
 
-async def propose_experiment_node(state: ARAState) -> Dict[str, Any]:
+
+async def propose_experiment_node(state: ARAState) -> dict[str, Any]:
     """Generate an ExperimentProposal from the latest hypothesis."""
     hypotheses = state.get("hypotheses", [])
     if not hypotheses:
@@ -29,19 +31,28 @@ async def propose_experiment_node(state: ARAState) -> Dict[str, Any]:
     state["experiment"] = proposal.dict() if hasattr(proposal, "dict") else proposal
     return state
 
-async def validate_feasibility_node(state: ARAState) -> Dict[str, Any]:
+
+async def validate_feasibility_node(state: ARAState) -> dict[str, Any]:
     """Basic feasibility checks: controls present, readouts measurable."""
     exp = state.get("experiment")
     if not exp:
         state["experiment_error"] = "No experiment proposal found."
         return state
-    if not exp.get("controls") or not isinstance(exp["controls"], list) or len(exp["controls"]) == 0:
+    if (
+        not exp.get("controls")
+        or not isinstance(exp["controls"], list)
+        or len(exp["controls"]) == 0
+    ):
         state["experiment_error"] = "Experiment proposal missing controls."
         return state
-    if not exp.get("readouts") or not isinstance(exp["readouts"], list) or len(exp["readouts"]) == 0:
+    if (
+        not exp.get("readouts")
+        or not isinstance(exp["readouts"], list)
+        or len(exp["readouts"]) == 0
+    ):
         state["experiment_error"] = "Experiment proposal missing measurable readouts."
         return state
     return state
 
-__all__ = ["propose_experiment_node", "validate_feasibility_node"]
 
+__all__ = ["propose_experiment_node", "validate_feasibility_node"]

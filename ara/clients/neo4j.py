@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import List, Dict, Any
-from ara.schemas.triple import Triple
-from ara.schemas.entity import EntityRef
-from ara.schemas.provenance import Provenance
-from ara.config import get_settings
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from typing import Any
+
 from neo4j import AsyncGraphDatabase
 
-KGDelta = Dict[str, Any]  # simple delta representation
+from ara.schemas.entity import EntityRef
+from ara.schemas.triple import Triple
+
+KGDelta = dict[str, Any]  # simple delta representation
 
 
 class Neo4jKnowledgeGraphClient:
@@ -40,30 +38,24 @@ class Neo4jKnowledgeGraphClient:
     async def ensure_schema(self) -> None:
         """Create uniqueness constraints if they do not exist."""
         async with self.driver.session() as session:
-            await session.run(
-                """
+            await session.run("""
                 CREATE CONSTRAINT IF NOT EXISTS uni_entity_id
                 FOR (e:Entity) REQUIRE e.id IS UNIQUE
-                """
-            )
-            await session.run(
-                """
+                """)
+            await session.run("""
                 CREATE CONSTRAINT IF NOT EXISTS uni_triple
                 FOR (t:Triple)
                 WITH t.subject, t.object
                 REQUIRE (t.subject.id, t.object.id) IS UNIQUE
-                """
-            )
-            await session.run(
-                """
+                """)
+            await session.run("""
                 CREATE CONSTRAINT IF NOT EXISTS uni_triple_predicate
                 FOR (t:Triple)
                 WITH t.predicate
                 REQUIRE t.predicate IS UNIQUE
-                """
-            )
+                """)
 
-    async def upsert_triples(self, triples: List[Triple]) -> KGDelta:
+    async def upsert_triples(self, triples: list[Triple]) -> KGDelta:
         """MERGE each triple (subject, object, relationship) and return a delta."""
         delta = {"added": 0, "updated": 0}
         async with self.driver.session() as session:
@@ -72,18 +64,20 @@ class Neo4jKnowledgeGraphClient:
                 await session.run(
                     """
                     MERGE (s:Entity {name: $subject_name, type: $subject_type, id: $subject_id})
-                    """
-                , subject_name=triple.subject.name,
-                  subject_type=triple.subject.type,
-                  subject_id=triple.subject.id or "")
+                    """,
+                    subject_name=triple.subject.name,
+                    subject_type=triple.subject.type,
+                    subject_id=triple.subject.id or "",
+                )
                 # MERGE object entity
                 await session.run(
                     """
                     MERGE (o:Entity {name: $object_name, type: $object_type, id: $object_id})
-                    """
-                , object_name=triple.object.name,
-                  object_type=triple.object.type,
-                  object_id=triple.object.id or "")
+                    """,
+                    object_name=triple.object.name,
+                    object_type=triple.object.type,
+                    object_id=triple.object.id or "",
+                )
                 # MERGE relationship (using a generic 'REL' type) and set properties
                 await session.run(
                     """
@@ -94,12 +88,12 @@ class Neo4jKnowledgeGraphClient:
                         r.confidence = $conf,
                         r.provenance = $prov,
                         r.timestamp = datetime()
-                    """
-                , subject_name=triple.subject.name,
-                  object_name=triple.object.name,
-                  predicate=triple.predicate,
-                  conf=triple.confidence,
-                  prov=triple.provenance.dict()
+                    """,
+                    subject_name=triple.subject.name,
+                    object_name=triple.object.name,
+                    predicate=triple.predicate,
+                    conf=triple.confidence,
+                    prov=triple.provenance.dict(),
                 )
                 delta["added"] += 1
         return delta
@@ -108,18 +102,18 @@ class Neo4jKnowledgeGraphClient:
         """Resolve a name to a canonical EntityRef (simple name‑based resolution)."""
         return EntityRef(name=name, type=entity_type, id=name)
 
-    async def query_cypher(self, cypher: str, params: dict | None = None) -> List[dict]:
+    async def query_cypher(self, cypher: str, params: dict | None = None) -> list[dict]:
         """Execute a Cypher query and return a list of dictionaries."""
         async with self.driver.session() as session:
             result = await session.run(cypher, params or {})
             return [record._asdict() for record in result]
 
-    async def subgraph(self, entity_ids: List[str], depth: int = 2) -> List[Triple]:
+    async def subgraph(self, entity_ids: list[str], depth: int = 2) -> list[Triple]:
         """Return all triples reachable from the given entity IDs up to a depth."""
         # Placeholder – actual traversal would be more sophisticated.
         return []
 
-    async def temporal_query(self, window: str) -> List[Triple]:
+    async def temporal_query(self, window: str) -> list[Triple]:
         """Return triples that were added/modified within the given time window."""
         # Placeholder – real implementation would filter by timestamps.
         return []

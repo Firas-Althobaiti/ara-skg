@@ -3,15 +3,16 @@
 
 from langgraph import StateGraph
 from langgraph.checkpoint.sqlite import SqliteSaver
-from ara.state import ARAState
-from ara.graphs.ingestion import build_ingestion_graph
+
+from ara.graphs.evolution import build_evolution_graph
+from ara.graphs.experiment import build_experiment_graph
 from ara.graphs.extraction import build_extraction_graph
 from ara.graphs.graph_update import build_graph_update_graph
-from ara.graphs.query import build_query_graph
 from ara.graphs.hypothesis import build_hypothesis_graph
-from ara.graphs.experiment import build_experiment_graph
-from ara.graphs.evolution import build_evolution_graph
+from ara.graphs.ingestion import build_ingestion_graph
+from ara.graphs.query import build_query_graph
 from ara.nodes.supervisor import classify_intent_node, critic_node, replan_node
+from ara.state import ARAState
 
 SUBGRAPHS = {
     "ingestion": build_ingestion_graph,
@@ -22,6 +23,7 @@ SUBGRAPHS = {
     "experiment": build_experiment_graph,
     "evolution": build_evolution_graph,
 }
+
 
 def build_main_graph(checkpointer: "BaseCheckpointSaver | None" = None):
     """
@@ -72,6 +74,7 @@ def build_main_graph(checkpointer: "BaseCheckpointSaver | None" = None):
         interrupt_before=["graph_update"],  # human approval before KG writes
     )
     return app
+
 
 # Singleton app with SQLite checkpointer
 app = build_main_graph(SqliteSaver("checkpoints.sqlite"))
