@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ara-skg"
 version = "0.1.0"
-description = "LangGraph‑based Autonomous Research Assistant for scientific knowledge graphs"
+description = "LangGraph-based Autonomous Research Assistant for scientific knowledge graphs"
 authors = [{name = "Your Name", email = "you@example.com"}]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,8 +21,7 @@ dependencies = [
     "tenacity>=9.0",
     "structlog>=24.0",
     "rich>=13.0",
-    "typer[all]>=0.12.0",
-    "pymupdf>=1.20.0",
+    "typer>=0.12.0",
 ]
 
 [project.optional-dependencies]
@@ -35,11 +34,21 @@ dev = [
     "mypy",
     "pre-commit",
 ]
+
+[tool.setuptools.packages.find]
+include = ["ara*"]
+
+# --- إعدادات Ruff ---
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 extend-exclude = [".venv", "venv", "vector_store", "artifacts", "scripts"]
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+# --- إعدادات Black ---
 [tool.black]
 line-length = 100
 target-version = ["py311", "py312"]
@@ -51,3 +60,19 @@ extend-exclude = '''
   | artifacts
 )/
 '''
+
+# --- إعدادات Mypy ---
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+# --- إعدادات Pytest ---
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# --- إعدادات Coverage ---
+[tool.coverage.run]
+source = ["ara"]
