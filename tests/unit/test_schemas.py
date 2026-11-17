@@ -1,19 +1,23 @@
 import json
+
+import pytest
+from pydantic import ValidationError
+
 from ara.schemas import (
-    Paper,
+    ARAState,
     Chunk,
     Entity,
     EntityRef,
-    Triple,
-    Provenance,
-    Hypothesis,
-    ExperimentProposal,
     EvolutionEvent,
-    ARAState,
+    ExperimentProposal,
+    Hypothesis,
+    Paper,
+    Provenance,
+    Triple,
 )
 
 
-def test_paper_round_trip():
+def test_paper_round_trip() -> None:
     paper = Paper(
         id="PMID:12345",
         source="pubmed",
@@ -31,14 +35,14 @@ def test_paper_round_trip():
             )
         ],
     )
-    # Serialize then deserialize
-    data = json.loads(paper.json())
-    paper_copy = Paper.parse_obj(data)
+    # Serialize then deserialize (Pydantic V2 syntax)
+    data = json.loads(paper.model_dump_json())
+    paper_copy = Paper.model_validate(data)
     assert paper == paper_copy
     assert len(paper.chunks) == len(paper_copy.chunks)
 
 
-def test_entity_literal_validation():
+def test_entity_literal_validation() -> None:
     # Valid entity
     Entity(
         id="geneA",
@@ -47,10 +51,9 @@ def test_entity_literal_validation():
         aliases=["BRCA1"],
         external_ids={"HGNC": "HGNC:123"},
     )
-    # Invalid type should raise
-    import pytest
-
-    with pytest.raises(Exception):
+    
+    # Invalid type should raise ValidationError
+    with pytest.raises(ValidationError):
         Entity(
             id="geneA",
             canonical_name="BRCA1",
@@ -58,7 +61,7 @@ def test_entity_literal_validation():
         )
 
 
-def test_triple_confidence_bounds():
+def test_triple_confidence_bounds() -> None:
     prop = Provenance(
         paper_id="PMID:001",
         chunk_id="c1",
@@ -75,10 +78,8 @@ def test_triple_confidence_bounds():
     )
     assert t.confidence >= 0.0 and t.confidence <= 1.0
 
-    # Invalid confidence should raise
-    import pytest
-
-    with pytest.raises(Exception):
+    # Invalid confidence should raise ValidationError
+    with pytest.raises(ValidationError):
         Triple(
             subject=EntityRef(name="GeneA", id="geneA"),
             predicate="expresses",
@@ -88,7 +89,7 @@ def test_triple_confidence_bounds():
         )
 
 
-def test_hypothesis_scores():
+def test_hypothesis_scores() -> None:
     hyp = Hypothesis(
         id="h1",
         statement="GeneA drives diseaseB",
@@ -102,10 +103,9 @@ def test_hypothesis_scores():
     )
     assert 0.0 <= hyp.novelty_score <= 1.0
     assert 0.0 <= hyp.plausibility_score <= 1.0
-    # Invalid scores raise
-    import pytest
-
-    with pytest.raises(Exception):
+    
+    # Invalid scores raise ValidationError
+    with pytest.raises(ValidationError):
         Hypothesis(
             id="h1",
             statement="test",
@@ -118,7 +118,7 @@ def test_hypothesis_scores():
         )
 
 
-def test_experiment_required_fields():
+def test_experiment_required_fields() -> None:
     hyp_id = "h1"
     exp = ExperimentProposal(
         id="exp1",
@@ -135,7 +135,7 @@ def test_experiment_required_fields():
     assert exp.hypothesis_id == hyp_id
 
 
-def test_evolution_change_type():
+def test_evolution_change_type() -> None:
     ev = EvolutionEvent(
         window="2023-01/2024-01",
         entity_id="geneA",
@@ -152,7 +152,6 @@ def test_evolution_change_type():
     ]
 
 
-def test_ara_state_import():
+def test_ara_state_import() -> None:
     # Import should not raise and state should be a TypedDict
-    from ara.schemas.state import ARAState
     assert isinstance(ARAState, type)
