@@ -1,5 +1,7 @@
 """PubMed client – async search and basic paper extraction."""
 
+from typing import Any, cast
+
 import httpx
 
 from ara.schemas.paper import Chunk, Paper
@@ -8,13 +10,13 @@ from ara.schemas.paper import Chunk, Paper
 class PubMedClient:
     BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.http = httpx.AsyncClient(timeout=30.0)
 
-    async def _request(self, endpoint: str, params: dict) -> dict:
+    async def _request(self, endpoint: str, params: dict[str, Any]) -> dict[str, Any]:
         resp = await self.http.get(f"{self.BASE_URL}/{endpoint}", params=params)
         resp.raise_for_status()
-        return resp.json()
+        return cast(dict[str, Any], resp.json())
 
     async def search_pubmed(self, query: str, retmax: int = 20) -> list[Paper]:
         # ESearch
@@ -46,5 +48,5 @@ class PubMedClient:
             papers.append(paper)
         return papers
 
-    async def close(self):
+    async def close(self) -> None:
         await self.http.aclose()

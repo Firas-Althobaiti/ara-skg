@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from .entity import EntityRef
@@ -24,7 +26,7 @@ class Triple(BaseModel):
     provenance: Provenance
 
 
-def coerce_triple(triple: Triple | dict) -> Triple:
+def coerce_triple(triple: Triple | dict[str, Any]) -> Triple:
     """Return *triple* as a :class:`Triple` model.
 
     Nodes in ``ara.nodes`` store triples in the state either as ``Triple``
@@ -36,7 +38,7 @@ def coerce_triple(triple: Triple | dict) -> Triple:
     return Triple.model_validate(triple)
 
 
-def triple_to_dict(triple: Triple | dict) -> dict:
+def triple_to_dict(triple: Triple | dict[str, Any]) -> dict[str, Any]:
     """Return *triple* as a plain dict (safe for both models and dicts)."""
     if isinstance(triple, Triple):
         return triple.model_dump()

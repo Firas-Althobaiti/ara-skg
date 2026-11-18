@@ -27,7 +27,7 @@ async def nl2cypher_node(state: ARAState) -> dict[str, Any]:
         state["params"] = {}
         return {"cypher": "", "params": {}}
     cypher = "MATCH (n:Entity) RETURN n.name AS name, n.id AS id"
-    params: dict = {}
+    params: dict[str, Any] = {}
     state["cypher"] = cypher
     state["params"] = params
     return {"cypher": cypher, "params": params}

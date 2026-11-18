@@ -8,6 +8,7 @@ lists for :func:`extract_entities_node`).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 from ara.clients.entity_linking import EntityLinkingClient
@@ -21,7 +22,7 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
-def _papers_chunks(state: ARAState):
+def _papers_chunks(state: ARAState) -> Iterator[tuple[str, Any]]:
     """Yield ``(paper_id, chunk)`` pairs for every chunk of every paper."""
     for paper in state.get("papers", []):
         paper_id = _get(paper, "id", "")

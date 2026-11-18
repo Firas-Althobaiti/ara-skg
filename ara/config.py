@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ara.clients.kg import KnowledgeGraphClient
 
 
-class Settings(BaseSettings):
+class Settings(BaseSettings):  # type: ignore[misc]
     """All configuration values are read from environment variables."""
 
     model_config = SettingsConfigDict(

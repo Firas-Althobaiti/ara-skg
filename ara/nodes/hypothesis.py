@@ -112,7 +112,7 @@ async def ground_hypothesis_node(state: ARAState) -> dict[str, Any]:
     """Attach supporting triples to each hypothesis by entity overlap."""
     valid_triples = state.get("valid_triples") or state.get("resolved_triples") or []
     parsed = [coerce_triple(t) for t in valid_triples]
-    hypotheses = state.get("hypotheses", [])
+    hypotheses: list[Any] = state.get("hypotheses", [])
     for hyp in hypotheses:
         entities = set(_get(hyp, "entities", []) or [])
         supporting: list[Any] = []

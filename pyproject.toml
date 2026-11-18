@@ -40,6 +40,10 @@ dev = [
     "pre-commit",
     "langgraph-checkpoint-sqlite>=2.0",
 ]
+eval = [
+    "pandas>=2.0",
+    "tabulate>=0.9",
+]
 
 [tool.setuptools.packages.find]
 include = ["ara*"]

@@ -10,7 +10,7 @@ offline with a mocked LLM.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from ara.clients import vector as vector_module
 from ara.config import get_settings
@@ -97,7 +97,7 @@ async def fetch_papers(state: ARAState) -> dict[str, Any]:
     elif src == "pubmed":
         from ara.clients.pubmed import PubMedClient
 
-        client = PubMedClient()
+        client: Any = PubMedClient()
         papers = await client.search_pubmed(query)
         await client.close()
     elif src == "arxiv":
@@ -153,8 +153,8 @@ async def chunk_papers(state: ARAState) -> dict[str, Any]:
 async def persist_chunks(state: ARAState) -> dict[str, Any]:
     """Write all paper chunks to the vector store (Chroma, lazily created)."""
     vector_client = vector_module.VectorStoreClient(persist_directory=get_settings().VECTOR_DIR)
-    chunk_dicts: list[dict] = []
-    metadatas: list[dict] = []
+    chunk_dicts: list[dict[str, Any]] = []
+    metadatas: list[dict[str, Any]] = []
     ids: list[str] = []
     for paper in state.get("papers", []):
         for i, chunk in enumerate(_get(paper, "chunks", [])):
@@ -184,10 +184,10 @@ async def ingest_papers(state: ARAState) -> dict[str, Any]:
     """
     merged: dict[str, Any] = dict(state)
     for node in (route_sources, fetch_papers, chunk_papers):
-        merged.update(await node(merged))
+        merged.update(await node(cast(ARAState, merged)))
         merged = {**state, **merged}
-    update = {k: merged[k] for k in ("source", "papers", "chunks") if k in merged}
-    state.update(update)
+    update: dict[str, Any] = {k: merged[k] for k in ("source", "papers", "chunks") if k in merged}
+    state.update(cast(ARAState, update))
     return update
 
 

@@ -11,7 +11,7 @@ TOOLS: list[str] = [
 ]
 
 
-def get_tool(name: str):
+def get_tool(name: str) -> str:
     """
     Return the tool name if it is registered, otherwise raise ``ValueError.
     This is a placeholder – real tool implementations live in ``ara/clients.

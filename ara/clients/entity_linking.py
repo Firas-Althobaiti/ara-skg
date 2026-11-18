@@ -8,7 +8,7 @@ from ara.schemas.entity import EntityRef
 class EntityLinkingClient:
     """Placeholder implementation – maps a few common aliases."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Example mapping: lower‑cased name → canonical name
         self.aliases = {
             "brca1": "geneA",
