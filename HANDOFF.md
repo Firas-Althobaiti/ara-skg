@@ -93,3 +93,49 @@
 
 - None. The eval harness is fully offline (mocked LLM, no KG backend needed);
   it reuses the existing `ARA_KG_*` settings only indirectly.
+
+## Phase 13 — Handoff (v1.0.0)
+
+### (a) Final public API surface
+
+- `ara.cli:main` — `ara` command: `ingest`, `query`, `hypothesize`, `evolve`, `demo`.
+- `ara.graphs.main` — `build_main_graph(checkpointer=None)`, `app`, `SUBGRAPHS`
+  (7 subgraphs); `interrupt_before=["graph_update"]`.
+- `ara.graphs.<phase>` — `build_*_graph()` for ingestion, extraction,
+  graph_update, query, hypothesis, experiment, evolution.
+- `ara.nodes.*` — node functions per subgraph (see `ara/nodes/`).
+- `ara.schemas` — `ARAState` (TypedDict) + `Paper`, `Entity`, `Triple`, `Hypothesis`, …
+- `ara.clients.kg` — `KnowledgeGraphClient` protocol + `get_kg_client(settings)`;
+  `kg_networkx.NetworkXKnowledgeGraphClient` (default, offline JSON);
+  `neo4j.Neo4jKnowledgeGraphClient`; `pubmed` / `arxiv` / `pdf` / `vector` clients.
+- `ara.config.Settings` — env-driven settings incl. `ARA_KG_BACKEND`, `ARA_KG_STORE`.
+- `ara.llm.get_llm` — LLM factory (currently mocked by default; see TODOs).
+- `ara.prompts.*` — 12 prompt constants, tagged v1.0.0 (see `docs/prompts.md`).
+- `ara.eval` — `run_eval() -> {"extraction_f1", "grounding"}`; `python -m ara.eval`.
+- `scripts/demo.py`, `scripts/seed_neo4j.py`.
+- Package version: `1.0.0` (`pyproject.toml` + `ara/_version.py`); MIT `LICENSE`.
+
+### (b) Shipped vs deferred
+
+- Shipped: mkdocs-material site (Home/Quickstart/Architecture/4 ADRs/Prompts/
+  Changelog stub), `CHANGELOG.md` (keep-a-changelog, M0–M13), README rewrite
+  (badges, docs link, What's inside, Install, Quickstart, Evaluation, Roadmap),
+  `docs.yml` (strict build gate on PRs touching docs) and `deploy-docs.yml`
+  (GitHub Pages via Actions, `push` to `main` + `workflow_dispatch`),
+  `docs`/`docs-build` make targets, `[docs]` extra, v1.0.0 tag + GitHub Release.
+- Deferred to v1.1+: real-LLM wiring + eval re-baselining, larger gold set,
+  `Send` fan-out, full Cypher on NetworkX, Neo4j in CI (see CHANGELOG Unreleased).
+
+### (c) Site URL and deployment mechanism
+
+- Site: https://firas-althobaiti.github.io/ara-skg/ (Pages source = GitHub
+  Actions, already configured on the repo).
+- Deploy: `.github/workflows/deploy-docs.yml` runs `mkdocs build --strict` on
+  push to `main` (paths: `docs/**`, `mkdocs.yml`, `README.md`, `CHANGELOG.md`)
+  and publishes `./site` via `actions/upload-pages-artifact@v3` +
+  `actions/deploy-pages@v4` to the `github-pages` environment.
+- `site/` is build output and stays git-ignored (`/site` in `.gitignore`).
+
+### (d) Env vars added
+
+- None.

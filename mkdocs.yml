@@ -1,0 +1,41 @@
+site_name: ARA-SKG
+site_url: https://firas-althobaiti.github.io/ara-skg/
+site_description: Autonomous Research Assistant for Scientific Knowledge Graphs
+repo_url: https://github.com/Firas-Althobaiti/ara-skg
+repo_name: Firas-Althobaiti/ara-skg
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle: {icon: material/brightness-7, name: Switch to dark mode}
+    - scheme: slate
+      toggle: {icon: material/brightness-4, name: Switch to light mode}
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Architecture: architecture.md
+  - ADRs:
+      - "0001 — Subgraphs": adr/0001-subgraphs.md
+      - "0002 — Checkpointer": adr/0002-checkpointer.md
+      - "0003 — Send fan-out": adr/0003-send-fanout.md
+      - "0004 — Interrupt before": adr/0004-interrupt-before.md
+  - Prompts: prompts.md
+  - Changelog: changelog.md
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true

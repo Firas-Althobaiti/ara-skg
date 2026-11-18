@@ -23,12 +23,18 @@ eval:
 seed:
 	python scripts/seed_neo4j.py
 
+docs:
+	mkdocs serve
+
+docs-build:
+	mkdocs build --strict
+
 up:
 	docker compose up -d
 
 down:
 	docker compose down
 
-.PHONY: install lint type test cov demo eval seed up down
+.PHONY: install lint type test cov demo eval seed docs docs-build up down
 
 
