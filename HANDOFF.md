@@ -272,4 +272,25 @@
 
 ### (e) Manual verification
 
-- Smoke-test output pasted below after merge (live NCBI/arXiv calls).
+Live smoke tests on merged main (2026-11-19, real NCBI/arXiv calls,
+`NCBI_API_KEY` picked up from `.env`):
+
+```
+$ ara ingest "BRCA1 breast cancer" --source pubmed --kg-store <tmp>/smoke_kg.json
+… Ingested papers (source=pubmed): PMID:43045764 (2026), PMID:43044269 (2026),
+  PMID:43042434 (2026) — each with a real multi-section abstract (957–2111 chars,
+  never "Placeholder abstract.") … KG delta: added=12 updated=0 — Ingest complete.
+
+$ ara ingest "crispr cas9" --source arxiv --kg-store <tmp>/smoke_kg2.json
+… Ingested papers (source=arxiv): http://arxiv.org/abs/2103.10667 (2021),
+  http://arxiv.org/abs/2401.05714 (2024), … — real <summary> abstracts …
+
+Direct client checks:
+PubMedClient.search_pubmed("BRCA1 breast cancer", retmax=3) → 3 papers, real abstracts.
+ArXivClient.search_arxiv("crispr cas9", max_results=2) → 2 papers, real summaries,
+  ids version-stripped (…/2103.10667, not …/2103.10667vN).
+```
+
+Two real bugs were caught by these smoke tests and fixed in follow-up PRs:
+#14 arXiv `http://` URL 301-redirects to https (httpx doesn't follow) → https URL;
+#15 CLI passed the whole task string as the query → prefix stripped.
