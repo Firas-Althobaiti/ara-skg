@@ -88,3 +88,28 @@ async def test_persist_chunks(monkeypatch):
     )
     await persist_chunks(state)
     # No exception means success
+
+
+@pytest.mark.asyncio
+async def test_fetch_papers_strips_ingest_prefix(monkeypatch):
+    """task 'ingest pubmed BRCA1 breast cancer' must search 'BRCA1 breast cancer'."""
+    import ara.clients.pubmed as pubmed_mod
+
+    captured: dict = {}
+
+    class FakeClient:
+        def __init__(self, api_key=None):
+            captured["api_key"] = api_key
+
+        async def search_pubmed(self, query, retmax=20):
+            captured["query"] = query
+            return []
+
+        async def close(self):
+            pass
+
+    monkeypatch.setattr(pubmed_mod, "PubMedClient", FakeClient)
+    state = ARAState(task="ingest pubmed BRCA1 breast cancer")
+    state.update(await route_sources(state))
+    await fetch_papers(state)
+    assert captured["query"] == "BRCA1 breast cancer"
