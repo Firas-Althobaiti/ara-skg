@@ -15,7 +15,9 @@ class KnowledgeGraphClient(Protocol):
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
         """Resolve a name to a canonical EntityRef."""
 
-    async def query_cypher(self, cypher: str, params: dict | None = None) -> list[dict]:
+    async def query_cypher(
+        self, cypher: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a Cypher query and return results."""
 
     async def subgraph(self, entity_ids: list[str], depth: int = 2) -> list[Triple]:

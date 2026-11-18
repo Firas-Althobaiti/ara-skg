@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import networkx as nx
+import networkx as nx  # type: ignore[import-untyped]
 
 from ara.schemas.entity import EntityRef
 from ara.schemas.triple import Provenance, Triple
@@ -124,7 +124,9 @@ class NetworkXKnowledgeGraphClient:
             self._save()
         return EntityRef(name=name, type=entity_type, id=node_id)
 
-    async def query_cypher(self, cypher: str, params: dict | None = None) -> list[dict]:
+    async def query_cypher(
+        self, cypher: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a *minimal read-only subset* of Cypher.
 
         Supports single-node patterns such as::
@@ -142,7 +144,7 @@ class NetworkXKnowledgeGraphClient:
         if not match:
             raise NotImplementedError("NetworkX client requires a RETURN clause")
         fields = [f.strip() for f in match.group(1).split(",")]
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         for node_id, attrs in self.graph.nodes(data=True):
             row: dict[str, Any] = {}
             for field in fields:
@@ -217,7 +219,7 @@ class NetworkXKnowledgeGraphClient:
         """Node/edge counts for reporting."""
         return {"nodes": self.graph.number_of_nodes(), "edges": self.graph.number_of_edges()}
 
-    def _edge_to_triple(self, u: str, v: str, attrs: dict) -> Triple:
+    def _edge_to_triple(self, u: str, v: str, attrs: dict[str, Any]) -> Triple:
         subj_attrs = self.graph.nodes[u]
         obj_attrs = self.graph.nodes[v]
         prov = attrs.get("provenance") or {}

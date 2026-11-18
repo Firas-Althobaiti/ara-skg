@@ -1,7 +1,20 @@
 from ara.config import Settings, get_settings
 
 
-def test_settings_defaults() -> None:
+def test_settings_defaults(monkeypatch) -> None:
+    for var in (
+        "OPENAI_API_KEY",
+        "NEO4J_URI",
+        "NEO4J_USER",
+        "NEO4J_PASSWORD",
+        "VECTOR_DIR",
+        "ARA_KG_BACKEND",
+        "ARA_KG_STORE",
+        "LANGCHAIN_TRACING_V2",
+        "LANGCHAIN_API_KEY",
+        "LANGSMITH_PROJECT",
+    ):
+        monkeypatch.delenv(var, raising=False)
     get_settings.cache_clear()
     settings = get_settings()
     assert isinstance(settings, Settings)
@@ -44,6 +57,8 @@ def test_settings_defaults_when_env_missing(monkeypatch) -> None:
     get_settings.cache_clear()
     monkeypatch.delenv("NEO4J_URI", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ARA_KG_BACKEND", raising=False)
+    monkeypatch.delenv("ARA_KG_STORE", raising=False)
     settings = Settings()
     assert settings.NEO4J_URI == "bolt://localhost:7687"
     assert settings.ARA_KG_BACKEND == "networkx"

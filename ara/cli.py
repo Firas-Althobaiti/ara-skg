@@ -18,7 +18,7 @@ import asyncio
 import importlib.util
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import typer
 from rich.console import Console
@@ -78,6 +78,11 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
     return getattr(obj, key, default)
 
 
+def _apply(state: ARAState, update: dict[str, Any]) -> None:
+    """Merge a node's partial state (plain dict) into the ARAState TypedDict."""
+    state.update(cast(ARAState, update))
+
+
 def _triple_rows(triples: list[Any], limit: int = 25) -> Table:
     table = Table(title="Knowledge-graph triples", header_style="bold cyan")
     table.add_column("Subject")
@@ -127,11 +132,10 @@ def ingest(
     """Ingest papers into the KG: fetch → extract → resolve → upsert."""
     _use_kg_store(kg_store)
     logger.info("ingest start", source=source, query=query)
-    state: ARAState = {"task": f"ingest {source} {query}", "persist": persist, "errors": []}
+    state = cast(ARAState, {"task": f"ingest {source} {query}", "persist": persist, "errors": []})
 
     async def _run() -> ARAState:
-        update = await ingest_papers(state)
-        state.update(update)
+        _apply(state, await ingest_papers(state))
         for node in (
             extract_entities_node,
             extract_relations_node,
@@ -141,7 +145,7 @@ def ingest(
             ensure_schema_node,
             upsert_kg_node,
         ):
-            state.update(await node(state))
+            _apply(state, await node(state))
         return state
 
     final = asyncio.run(_run())
@@ -197,7 +201,7 @@ def query(
             run_cypher_node,
             synthesize_answer_node,
         ):
-            state.update(await node(state))
+            _apply(state, await node(state))
             if state.get("error"):
                 break
         return state
@@ -240,7 +244,7 @@ def hypothesize(
             rank_hypotheses_node,
             critique_hypothesis_node,
         ):
-            state.update(await node(state))
+            _apply(state, await node(state))
         return state
 
     final = asyncio.run(_run())
@@ -267,7 +271,7 @@ def evolve(
         current = [t.model_dump() for t in await client.all_triples()]  # type: ignore[attr-defined]
         store_path = Path(str(getattr(get_settings(), "ARA_KG_STORE", "kg_store.json")))
         prev_path = store_path.with_suffix(store_path.suffix + ".prev.json")
-        prev: list[dict] = []
+        prev: list[dict[str, Any]] = []
         if prev_path.exists():
             import json
 
@@ -279,7 +283,7 @@ def evolve(
             "errors": [],
         }
         for node in (window_triples_node, detect_changes_node, summarize_evolution_node):
-            state.update(await node(state))
+            _apply(state, await node(state))
         # snapshot current window for the next run
         import json
 
