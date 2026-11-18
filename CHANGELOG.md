@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — coming in v1.1+
 
+### Fixed
+- PubMed client: replaced the N+1 esummary loop (which read non-existent
+  `article-title` keys and stored `"Placeholder abstract."`) with one
+  esearch + ONE batched `efetch rettype=abstract&retmode=xml` parsed via
+  stdlib ElementTree — real titles, multi-section abstracts, authors, year,
+  DOI lookup. Zero hits now raise `ValueError` instead of silently
+  returning an empty list (#12).
+- arXiv client: query params are now URL-encoded via httpx `params` (spaces
+  and `&` no longer break the URL); the Atom feed is parsed for real
+  `<summary>` abstracts, normalized titles, authors, published year, and
+  version-stripped ids (`…v2` removed) (#12).
+- Both clients retry individual HTTP calls (429/5xx/transport errors) with
+  tenacity exponential backoff + jitter, 4 attempts (`ara/clients/_retry.py`);
+  `NCBI_API_KEY` is supported via params and raises the NCBI limit to
+  10 req/s (#12).
+
 - Wire the real LLM (`ara.llm.get_llm` + structured outputs) into the extraction,
   hypothesis, query and evolution nodes; re-baseline the eval thresholds
   (F1 >= 0.6, grounding == 1.0) against real extraction output.

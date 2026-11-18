@@ -222,3 +222,54 @@
 ### (d) Env vars added
 
 - None.
+
+## Phase 14C — Real Literature Fetch
+
+### (a) Public symbols exported
+
+- `ara.clients._retry.RETRY` — typed tenacity decorator (HTTPStatusError /
+  TransportError, exponential backoff + jitter, 4 attempts, reraise).
+- `ara.clients.pubmed.PubMedClient(api_key=...)` / `PubMedParseError`;
+  internals `_esearch` (one request), `_efetch` (ONE batched
+  `rettype=abstract&retmode=xml`), `_parse_article` (stdlib ElementTree).
+- `ara.clients.arxiv.ArXivClient` / `ArXivParseError`; `_get_feed` via httpx
+  `params=`; Atom parsing strips `vN` id suffixes, whitespace-normalizes
+  title/summary.
+- `Settings.NCBI_API_KEY` — sent as `api_key` param (never string concat).
+
+### (b) What changed and why
+
+- PubMed: N+1 esummary loop (non-existent `article-title` key,
+  `"Placeholder abstract."` chunks) replaced by esearch + single batched
+  efetch XML; real abstract (multi-`<AbstractText>` joined), authors
+  (LastName + ForeName/Initials), year (PubDate Year/MedlineDate), DOI
+  located. `Paper.chunks = []` — chunking stays downstream in chunk_papers.
+  0 hits → `ValueError(f"No PubMed results for query: {query!r}")`.
+- arXiv: f-string URL replaced by httpx `params=` (spaces/`&` encoded);
+  real `<summary>` abstracts; version suffix stripped from ids.
+- Both: `@RETRY` on the single HTTP call only (not the pipeline);
+  `raise_for_status()` before parsing so 429/5xx are retried.
+- Malformed XML wrapped in domain errors (`PubMedParseError` /
+  `ArXivParseError`), ET internals not leaked.
+
+### (c) Tests
+
+- `tests/unit/test_pubmed_client.py` (pytest-httpx, all mocked): 2-paper
+  efetch with real abstracts + exactly 2 requests (no N+1) + api_key in
+  params; 429→200 retry (esearch called twice); 0 ids → ValueError with
+  query; malformed XML → PubMedParseError.
+- `tests/unit/test_arxiv_client.py`: "crispr cas9" encoded (`+`/`%20`),
+  "crispr & cas9" → `%26`; 2-entry Atom → real summaries, normalized
+  title, `v2` suffix stripped, authors, year.
+- 79 tests total (73 + 6 new). NOTE: local runs in this repo pick up the
+  user's `.env` (contains OPENAI_API_KEY), which makes the pre-existing
+  `test_settings_defaults` fail locally; verified green with a clean cwd —
+  CI (no .env) is unaffected.
+
+### (d) Env vars added
+
+- `NCBI_API_KEY` (optional; raises NCBI limit 3 → 10 req/s).
+
+### (e) Manual verification
+
+- Smoke-test output pasted below after merge (live NCBI/arXiv calls).
