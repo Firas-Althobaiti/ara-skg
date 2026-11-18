@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ara-skg"
-version = "0.1.0"
+version = "1.0.0"
 description = "LangGraph-based Autonomous Research Assistant for scientific knowledge graphs"
 authors = [{name = "Your Name", email = "you@example.com"}]
 readme = "README.md"
@@ -43,6 +43,10 @@ dev = [
 eval = [
     "pandas>=2.0",
     "tabulate>=0.9",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
 ]
 
 [tool.setuptools.packages.find]

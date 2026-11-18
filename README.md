@@ -1,22 +1,65 @@
 # ARA‑SKG
 
-**Autonomous Research Assistant** — a LangGraph-based framework that ingests
-biomedical literature, extracts entities/relations into a scientific
-knowledge graph (KG), answers natural-language queries, generates grounded
-hypotheses, proposes experiments, and tracks concept evolution.
+**Autonomous Research Assistant for Scientific Knowledge Graphs** — a
+LangGraph-based framework that ingests biomedical literature, extracts
+entities/relations into a scientific knowledge graph (KG), answers
+natural-language queries, generates provenance-grounded hypotheses, proposes
+experiments, and tracks concept evolution.
 
-## Quickstart
+[![CI](https://github.com/Firas-Althobaiti/ara-skg/actions/workflows/ci.yml/badge.svg)](https://github.com/Firas-Althobaiti/ara-skg/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-4285F4)](https://firas-althobaiti.github.io/ara-skg/)
+
+> 📖 **Full documentation: <https://firas-althobaiti.github.io/ara-skg/>**
+> (quickstart, architecture + ADRs, prompt catalog — deployed automatically
+> from `main` via GitHub Actions)
+
+## What's inside
+
+Seven LangGraph subgraphs behind one supervisor, all sharing a typed
+`ARAState`:
+
+| Subgraph | One-liner |
+|---|---|
+| **Ingestion** | fetch papers (PubMed / arXiv / PDF / mock) → chunk → vector store |
+| **Extraction** | entities → relations → entity linking → triple validation (with provenance) |
+| **Graph update** | resolve canonical IDs → schema → upsert into the KG (human-approved via interrupt) |
+| **Query** | guarded read-only NL→Cypher + evidence-backed answers |
+| **Hypothesis** | generate 3–5 hypotheses → ground in ≥ 2 triples → rank → critique |
+| **Experiment** | propose + feasibility-validate an experiment for the top hypothesis |
+| **Evolution** | diff KG windows: emerging / fading / renamed / relation_shift events |
+
+Plus two interchangeable KG backends (offline **NetworkX/JSON** and **Neo4j**),
+a `typer` CLI (`ara`), a one-command offline demo, and an **evaluation harness**
+(`make eval`).
+
+## Install
+
+Requires **Python 3.11+** (developed and CI-tested on 3.11–3.13; docs build on
+3.13):
 
 ```bash
 git clone https://github.com/Firas-Althobaiti/ara-skg.git
 cd ara-skg
-make install        # == pip install -e .[dev]
-make demo           # one-command end-to-end demo — fully offline, exits 0
+pip install -e .[dev]     # or: make install
+# optional extras:
+pip install -e .[eval]    # pandas/tabulate for eval analysis
+pip install -e .[docs]    # mkdocs + material for the docs site
 ```
+
+## Quickstart
+
+```bash
+make demo           # one-command end-to-end demo — fully offline, exits 0
+make eval           # evaluation metrics table (see below)
+```
+
+👉 Full 5-minute walkthrough: **[docs/quickstart](https://firas-althobaiti.github.io/ara-skg/quickstart/)**
 
 `make demo` runs `python scripts/demo.py`:
 
-```
+```text
 3 mock papers → extract entities/relations → validate → upsert into the KG
     → generate 3 hypotheses → ground → rank → critique
     → propose 1 experiment → validate feasibility
@@ -26,14 +69,6 @@ make demo           # one-command end-to-end demo — fully offline, exits 0
 It prints rich tables to the console and writes **`artifacts/demo_report.md`**
 (plus the persisted graph `artifacts/demo_kg.json`). It uses the **NetworkX
 backend + mocked LLM**, so it needs **no API key and no Neo4j**.
-
-Optional — real Neo4j backend with a seeded KG:
-
-```bash
-make up             # docker compose up -d   (Neo4j, see .github/docker-compose.yml)
-make seed           # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempotent:
-                    # re-running reports added=0, updated=30)
-```
 
 ### Demo output (condensed ASCII of the real console output)
 
@@ -93,9 +128,6 @@ critique: All hypotheses are well supported.
 └────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-The full markdown report (papers, triples, hypotheses, experiment, evolution)
-lands in `artifacts/demo_report.md`.
-
 ### CLI
 
 `pip install -e .` installs the `ara` command (entry point `ara.cli:main`):
@@ -112,6 +144,28 @@ All commands default to the offline **NetworkX** backend and the **mocked
 LLM** — no API key needed. `--kg-store PATH` selects the JSON store;
 `ARA_KG_BACKEND=neo4j` switches to Neo4j (see `.env.example`).
 
+## Evaluation
+
+```bash
+make eval     # == python -m ara.eval  (exits 1 below thresholds)
+```
+
+```text
+          ARA-SKG evaluation metrics
+┌───────────────┬────────┬───────────┬────────┐
+│ Metric        │  Value │ Threshold │ Status │
+├───────────────┼────────┼───────────┼────────┤
+│ extraction_f1 │ 0.9333 │    >= 0.6 │ PASS   │
+│ grounding     │ 1.0000 │    >= 1.0 │ PASS   │
+└───────────────┴────────┴───────────┴────────┘
+```
+
+- **extraction_f1** — set-based F1 of the extraction pipeline vs. a gold set of
+  21 manually verified triples from two real PubMed papers (curation rules in
+  `ara/eval/gold/README.md`).
+- **grounding** — fraction of hypotheses with ≥ 2 provenance-linked supporting
+  triples.
+
 ## Configuration
 
 All settings come from environment variables (see `.env.example`):
@@ -122,11 +176,31 @@ for the NetworkX backend), `VECTOR_DIR`, and the optional LangSmith vars.
 ## Development
 
 ```bash
-make lint   # ruff + black
-make type   # mypy --strict ara
-make test   # pytest (59 tests)
-make cov    # pytest --cov=ara
+make lint        # ruff + black
+make type        # mypy --strict ara
+make test        # pytest (61 tests)
+make cov         # pytest --cov=ara
+make eval        # evaluation metrics
+make demo        # offline end-to-end demo
+make docs        # mkdocs serve (pip install -e .[docs] first)
+make docs-build  # mkdocs build --strict
 ```
+
+Optional — real Neo4j backend with a seeded KG:
+
+```bash
+make up     # docker compose up -d   (Neo4j)
+make seed   # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempotent)
+```
+
+## Roadmap → v1.1+
+
+- Wire the real LLM (`ara.llm.get_llm` + structured outputs) into all nodes;
+  re-baseline eval thresholds against real extraction output
+- `Send`-based parallel chunk extraction (see ADR-0003)
+- Grow the eval gold set; full Cypher on the NetworkX backend
+- Neo4j end-to-end run in CI
+- See `CHANGELOG.md` → *Unreleased* for the full list
 
 ## Architecture (Mermaid)
 
@@ -161,3 +235,9 @@ flowchart TD
     end
     I --> E --> U --> Q --> H --> X --> L --> A
 ```
+
+Full details + decision records: [Architecture & ADRs](https://firas-althobaiti.github.io/ara-skg/architecture/).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
