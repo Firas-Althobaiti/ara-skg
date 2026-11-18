@@ -10,6 +10,7 @@ offline with a mocked LLM.
 
 from __future__ import annotations
 
+import re
 from typing import Any, cast
 
 from ara.clients import vector as vector_module
@@ -91,7 +92,10 @@ async def route_sources(state: ARAState) -> dict[str, Any]:
 async def fetch_papers(state: ARAState) -> dict[str, Any]:
     """Fetch papers from the routed source (``mock`` needs no network)."""
     src = state["source"]
-    query = state["task"]
+    task = state["task"]
+    # The CLI builds task as "ingest <source> <query>" — strip that prefix so
+    # the search query is the user's query, not the whole task string.
+    query = re.sub(r"^ingest\s+\S+\s+", "", task, count=1, flags=re.IGNORECASE)
     if src == "mock":
         papers = mock_papers()
     elif src == "pubmed":
