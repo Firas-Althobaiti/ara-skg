@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Hashable
+from collections.abc import Hashable
+from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
