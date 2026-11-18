@@ -8,15 +8,31 @@ from typing import Any
 from neo4j import AsyncGraphDatabase
 
 from ara.schemas.entity import EntityRef
-from ara.schemas.triple import Triple
+from ara.schemas.triple import Provenance, Triple
 
 KGDelta = dict[str, Any]  # simple delta representation
+
+_DEFAULT_PROVENANCE = {
+    "paper_id": "unknown",
+    "chunk_id": "0",
+    "span": 0,
+    "extracted_by": "neo4j",
+}
+
+
+def _to_provenance(raw: Any) -> Provenance:
+    """Normalize a raw provenance value (dict or Provenance) to a Provenance."""
+    if isinstance(raw, Provenance):
+        return raw
+    if isinstance(raw, dict):
+        return Provenance.model_validate(raw)
+    return Provenance.model_validate(_DEFAULT_PROVENANCE)
 
 
 class Neo4jKnowledgeGraphClient:
     """Async Neo4j client implementing KnowledgeGraphClient."""
 
-    def __init__(self, uri: str, user: str, password: str):
+    def __init__(self, uri: str, user: str, password: str) -> None:
         self.uri = uri
         self.user = user
         self.password = password
@@ -27,11 +43,11 @@ class Neo4jKnowledgeGraphClient:
         if self.driver is None:
             self.driver = AsyncGraphDatabase.driver(self.uri, auth=(self.user, self.password))
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Neo4jKnowledgeGraphClient:
         self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
         await self.close()
 
     async def close(self) -> None:
@@ -40,7 +56,7 @@ class Neo4jKnowledgeGraphClient:
             self.driver = None
 
     @classmethod
-    async def create(cls, uri: str, user: str, password: str):
+    async def create(cls, uri: str, user: str, password: str) -> Neo4jKnowledgeGraphClient:
         instance = cls(uri, user, password)
         await instance.__aenter__()
         return instance
@@ -107,7 +123,7 @@ class Neo4jKnowledgeGraphClient:
         return delta
 
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
-        """Resolve a name to a canonical EntityRef (name‑based resolution)."""
+        """Resolve a name to a canonical EntityRef (name-based resolution)."""
         self.connect()
         async with self.driver.session() as session:
             result = await session.run(
@@ -118,7 +134,9 @@ class Neo4jKnowledgeGraphClient:
                 return EntityRef(name=name, type=entity_type, id=record["id"])
         return EntityRef(name=name, type=entity_type, id=name)
 
-    async def query_cypher(self, cypher: str, params: dict | None = None) -> list[dict]:
+    async def query_cypher(
+        self, cypher: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Execute a Cypher query and return a list of dictionaries."""
         self.connect()
         async with self.driver.session() as session:
@@ -155,17 +173,15 @@ class Neo4jKnowledgeGraphClient:
                 s, r, o = record["s"], record["r"], record["o"]
                 triples.append(
                     Triple(
-                        subject=EntityRef(id=s["id"], name=s["name"], type=s.get("type", "other")),
+                        subject=EntityRef(
+                            id=s["id"], name=s["name"], type=s.get("type", "other")
+                        ),
                         predicate=r["predicate"],
-                        object=EntityRef(id=o["id"], name=o["name"], type=o.get("type", "other")),
+                        object=EntityRef(
+                            id=o["id"], name=o["name"], type=o.get("type", "other")
+                        ),
                         confidence=float(r.get("confidence", 0.0)),
-                        provenance=r.get("provenance")
-                        or {
-                            "paper_id": "unknown",
-                            "chunk_id": "0",
-                            "span": 0,
-                            "extracted_by": "neo4j",
-                        },
+                        provenance=_to_provenance(r.get("provenance")),
                     )
                 )
         return triples
@@ -178,7 +194,7 @@ class Neo4jKnowledgeGraphClient:
         self.connect()
         if window.strip().lower() in {"all", "*"}:
             cypher = "MATCH (s:Entity)-[r:REL]->(o:Entity) RETURN s, r, o"
-            params: dict = {}
+            params: dict[str, Any] = {}
         else:
             import re
             from datetime import datetime, timedelta
@@ -199,17 +215,15 @@ class Neo4jKnowledgeGraphClient:
                 s, r, o = record["s"], record["r"], record["o"]
                 triples.append(
                     Triple(
-                        subject=EntityRef(id=s["id"], name=s["name"], type=s.get("type", "other")),
+                        subject=EntityRef(
+                            id=s["id"], name=s["name"], type=s.get("type", "other")
+                        ),
                         predicate=r["predicate"],
-                        object=EntityRef(id=o["id"], name=o["name"], type=o.get("type", "other")),
+                        object=EntityRef(
+                            id=o["id"], name=o["name"], type=o.get("type", "other")
+                        ),
                         confidence=float(r.get("confidence", 0.0)),
-                        provenance=r.get("provenance")
-                        or {
-                            "paper_id": "unknown",
-                            "chunk_id": "0",
-                            "span": 0,
-                            "extracted_by": "neo4j",
-                        },
+                        provenance=_to_provenance(r.get("provenance")),
                     )
                 )
         return triples

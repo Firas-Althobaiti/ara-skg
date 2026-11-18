@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+import sqlite3
+from typing import Any, Hashable
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
@@ -28,7 +29,9 @@ SUBGRAPHS = {
 }
 
 
-def build_main_graph(checkpointer: BaseCheckpointSaver | None = None) -> Any:
+def build_main_graph(
+    checkpointer: BaseCheckpointSaver[Any] | None = None,
+) -> Any:
     """Build the top-level StateGraph.
 
     Nodes:
@@ -57,19 +60,26 @@ def build_main_graph(checkpointer: BaseCheckpointSaver | None = None) -> Any:
 
     g.add_edge(START, "supervisor")
 
+    # mypy strict requires explicit dict[Hashable, str] to satisfy
+    # the path_map parameter's variance.
+    path_map: dict[Hashable, str] = {name: name for name in SUBGRAPHS}
+    path_map["end"] = END
+
     g.add_conditional_edges(
         "supervisor",
         lambda s: s.get("route", "end"),
-        {name: name for name in SUBGRAPHS} | {"end": END},
+        path_map,
     )
 
     for name in SUBGRAPHS:
         g.add_edge(name, "critic")
 
+    # The critic's path_map also needs explicit typing.
+    critic_map: dict[Hashable, str] = {"replan": "replan", END: END}
     g.add_conditional_edges(
         "critic",
         lambda s: "replan" if s.get("needs_replan") else END,
-        {"replan": "replan", END: END},
+        critic_map,
     )
     g.add_edge("replan", "supervisor")
 
@@ -79,7 +89,7 @@ def build_main_graph(checkpointer: BaseCheckpointSaver | None = None) -> Any:
     )
 
 
-def _default_checkpointer() -> BaseCheckpointSaver:
+def _default_checkpointer() -> BaseCheckpointSaver[Any]:
     """SQLite checkpointer when available, otherwise in-memory.
 
     Note: the sync ``SqliteSaver`` is used here because this factory runs at
@@ -89,7 +99,8 @@ def _default_checkpointer() -> BaseCheckpointSaver:
     try:
         from langgraph.checkpoint.sqlite import SqliteSaver
 
-        return SqliteSaver("checkpoints.sqlite")
+        conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+        return SqliteSaver(conn)
     except ImportError:
         from langgraph.checkpoint.memory import MemorySaver
 
