@@ -139,3 +139,41 @@
 ### (d) Env vars added
 
 - None.
+
+## Phase 14A — Replan + Baseline
+
+### (a) Public symbols exported
+
+- `ara.nodes.supervisor.MAX_REPLANS` (= 3) — cap on replan cycles.
+- `ara.schemas.ARAState` — new fields `replan_count: int` and `prev_baseline: bool`.
+- `ara.nodes.evolution` — new `BASELINE_MARKER` (`"__baseline__"`),
+  `BASELINE_MESSAGE`, `load_prev_snapshot(path) -> (triples, is_baseline_run)`,
+  `save_snapshot(path, triples, *, baseline)` (atomic tmp+rename write).
+- `ara.cli` — `ara evolve --reset-baseline` deletes the `.prev.json` snapshot.
+
+### (b) What changed and why
+
+- **Bounded replan loop** (was: unbounded `critic → replan → supervisor` cycle
+  ending in `GraphRecursionError`): `replan_node` now increments
+  `replan_count` and preserves `errors`; `critic_node` only requests a replan
+  while `replan_count < MAX_REPLANS`, then routes to END with errors intact.
+  Tests: `tests/unit/test_replan_loop.py` (persistent failure → END,
+  `replan_count == 3`, 4 error messages preserved; success path → 0 replans).
+- **Evolution baseline mode** (was: first run reported every existing triple
+  as "emerging"): first `ara evolve` with no `.prev.json` writes
+  `{"__baseline__": true, "triples": [...]}` and reports 0 events +
+  "Baseline established…"; the next run diffs against that baseline normally.
+  Tests: node-level (0 events on baseline run; exactly 2 events after +2
+  triples; snapshot roundtrip) + CLI-level (first/second/`--reset-baseline`
+  runs in `tests/unit/test_cli.py`).
+
+### (c) Known TODOs
+
+- Replan retries the *same* task/subgraph; a smarter replan would alter the
+  plan (e.g. fall back to the mock source). Deferred.
+- Baseline is per-KG-store (`.prev.json` next to the store); Neo4j-backed
+  evolution snapshots are not yet persisted. Deferred.
+
+### (d) Env vars added
+
+- None.
