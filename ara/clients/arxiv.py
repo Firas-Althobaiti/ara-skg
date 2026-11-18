@@ -16,7 +16,7 @@ import httpx
 from ara.clients._retry import RETRY
 from ara.schemas import Paper
 
-API_URL = "http://export.arxiv.org/api/query"
+API_URL = "https://export.arxiv.org/api/query"  # http:// 301-redirects to https; httpx does not follow by default
 ATOM = "{http://www.w3.org/2005/Atom}"
 
 
