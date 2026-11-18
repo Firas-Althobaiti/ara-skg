@@ -1,11 +1,52 @@
-"""Evolution nodes: window → detect changes → summarize into a report."""
+"""Evolution nodes: window → detect changes → summarize into a report.
+
+Baseline mode: the first evolution run (no previous-window snapshot) does
+not report every existing triple as "emerging". Instead it establishes a
+baseline — the snapshot is written with a ``__baseline__`` marker and the
+run reports zero events with a "baseline established" message. The next
+run diffs against that baseline normally.
+"""
 
 from __future__ import annotations
 
+import json
+import os
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from ara.schemas import ARAState, coerce_triple
+
+BASELINE_MARKER = "__baseline__"
+BASELINE_MESSAGE = "Baseline established. Re-run after new ingestions to see changes."
+
+
+def load_prev_snapshot(prev_path: Path) -> tuple[list[Any], bool]:
+    """Load the previous-window snapshot from *prev_path*.
+
+    Returns ``(triples, is_baseline_run)``. ``is_baseline_run`` is True when
+    no snapshot file exists yet — the caller should treat this run as the
+    baseline (0 events) and persist the snapshot with the baseline marker.
+    """
+    if not prev_path.exists():
+        return [], True
+    raw = json.loads(prev_path.read_text(encoding="utf-8"))
+    return list(raw.get("triples", [])), False
+
+
+def save_snapshot(prev_path: Path, triples: list[Any], *, baseline: bool) -> None:
+    """Atomically persist the current window as the next run's "previous".
+
+    When *baseline* is True the snapshot is written as
+    ``{"__baseline__": true, "triples": [...]}``.
+    """
+    payload: dict[str, Any] = {"triples": triples}
+    if baseline:
+        payload[BASELINE_MARKER] = True
+    prev_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = prev_path.with_suffix(prev_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(tmp_path, prev_path)
 
 
 async def window_triples_node(state: ARAState) -> dict[str, Any]:
@@ -23,7 +64,16 @@ def _key(triple: Any) -> tuple[str, str, str]:
 
 
 async def detect_changes_node(state: ARAState) -> dict[str, Any]:
-    """Detect emerging / fading / relation_shift events between windows."""
+    """Detect emerging / fading / relation_shift events between windows.
+
+    Baseline run (``state['prev_baseline']`` is True, i.e. no previous
+    snapshot existed): report zero events — the current window *is* the
+    baseline, not a diff against an empty graph.
+    """
+    if state.get("prev_baseline"):
+        state["evolution_events"] = []
+        return {"evolution_events": []}
+
     current = state.get("valid_triples", [])
     previous = state.get("prev_valid_triples", [])
 
@@ -88,7 +138,7 @@ async def summarize_evolution_node(state: ARAState) -> dict[str, Any]:
     """Produce a markdown report from the detected evolution events."""
     events = state.get("evolution_events", [])
     if not events:
-        report = "No evolution events detected."
+        report = BASELINE_MESSAGE if state.get("prev_baseline") else "No evolution events detected."
     else:
         lines = ["## Evolution Summary\n"]
         for ev in events:
@@ -101,4 +151,12 @@ async def summarize_evolution_node(state: ARAState) -> dict[str, Any]:
     return {"evolution_report": report}
 
 
-__all__ = ["window_triples_node", "detect_changes_node", "summarize_evolution_node"]
+__all__ = [
+    "BASELINE_MARKER",
+    "BASELINE_MESSAGE",
+    "load_prev_snapshot",
+    "save_snapshot",
+    "window_triples_node",
+    "detect_changes_node",
+    "summarize_evolution_node",
+]

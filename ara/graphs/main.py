@@ -45,7 +45,8 @@ def build_main_graph(
         START → supervisor
         supervisor → subgraph (conditional on ``state['route']``)
         subgraph → critic
-        critic → END (or replan → supervisor if errors)
+        critic → END (or replan → supervisor if errors; bounded to
+        ``MAX_REPLANS`` = 3 cycles, then END with errors preserved)
 
     ``graph_update`` is interrupted before execution so a human can approve
     KG writes (resume by re-invoking with the same thread).

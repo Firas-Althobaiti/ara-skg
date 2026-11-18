@@ -48,5 +48,7 @@ class ARAState(TypedDict, total=False):
     errors: list[str]
     next_step: str | None
     needs_replan: bool
+    replan_count: int  # incremented by replan_node; caps the replan loop
+    prev_baseline: bool  # True on the first evolution run (no previous snapshot)
     provenance: dict[str, str]
     budget: float | None

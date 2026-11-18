@@ -27,7 +27,13 @@ from rich.table import Table
 
 from ara.config import get_settings
 from ara.logging import get_logger
-from ara.nodes.evolution import detect_changes_node, summarize_evolution_node, window_triples_node
+from ara.nodes.evolution import (
+    detect_changes_node,
+    load_prev_snapshot,
+    save_snapshot,
+    summarize_evolution_node,
+    window_triples_node,
+)
 from ara.nodes.extraction import (
     extract_entities_node,
     extract_relations_node,
@@ -261,35 +267,41 @@ def hypothesize(
 def evolve(
     window: str = typer.Argument("all", help="Time window, e.g. 'all', '7d', or an ISO date"),
     kg_store: str | None = typer.Option(None, "--kg-store", help="NetworkX KG JSON path"),
+    reset_baseline: bool = typer.Option(
+        False,
+        "--reset-baseline",
+        help="Delete the previous-window snapshot and re-establish the baseline",
+    ),
 ) -> None:
-    """Diff the current KG window against the previous snapshot and report changes."""
+    """Diff the current KG window against the previous snapshot and report changes.
+
+    The first run (no snapshot yet) establishes a baseline: zero events and a
+    "baseline established" message instead of reporting every existing triple
+    as emerging.
+    """
     _use_kg_store(kg_store)
-    logger.info("evolve", window=window)
+    logger.info("evolve", window=window, reset_baseline=reset_baseline)
 
     async def _run() -> ARAState:
         client = get_settings().client
         current = [t.model_dump() for t in await client.all_triples()]  # type: ignore[attr-defined]
         store_path = Path(str(getattr(get_settings(), "ARA_KG_STORE", "kg_store.json")))
         prev_path = store_path.with_suffix(store_path.suffix + ".prev.json")
-        prev: list[dict[str, Any]] = []
-        if prev_path.exists():
-            import json
-
-            prev = json.loads(prev_path.read_text(encoding="utf-8")).get("triples", [])
+        if reset_baseline and prev_path.exists():
+            prev_path.unlink()
+        prev, is_baseline_run = load_prev_snapshot(prev_path)
         state: ARAState = {
             "task": f"evolve window {window}",
             "valid_triples": current,
             "prev_valid_triples": prev,
+            "prev_baseline": is_baseline_run,
             "errors": [],
         }
         for node in (window_triples_node, detect_changes_node, summarize_evolution_node):
             _apply(state, await node(state))
-        # snapshot current window for the next run
-        import json
-
-        prev_path.write_text(
-            json.dumps({"window": window, "triples": current}, indent=2), encoding="utf-8"
-        )
+        # snapshot current window for the next run (atomic write; baseline
+        # marker only on the run that established the baseline)
+        save_snapshot(prev_path, current, baseline=is_baseline_run)
         return state
 
     final = asyncio.run(_run())
