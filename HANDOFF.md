@@ -177,3 +177,48 @@
 ### (d) Env vars added
 
 - None.
+
+## Phase 14B — Transactional KG
+
+### (a) Public symbols exported
+
+- `ara.clients.kg.KGWriteError` — raised by `upsert_triples` on batch
+  failure; guarantees zero partial writes persisted.
+- `ara.clients.kg.KGDelta` — moved to the protocol module (still importable
+  from `ara.clients.neo4j` / `ara.clients.kg_networkx` for backwards compat).
+- `KnowledgeGraphClient.rollback(delta)` — new protocol method. Neo4j:
+  no-op (single transaction already rolled back). NetworkX: restores the
+  pre-batch snapshot.
+- `NetworkXKnowledgeGraphClient._apply_triple / _snapshot_touched /
+  _restore_snapshot` — per-triple apply + snapshot/restore internals.
+
+### (b) What changed and why
+
+- **Neo4j**: `upsert_triples` now sends the whole batch as ONE `UNWIND`
+  query inside `session.execute_write` (single transaction; any row
+  failure rolls back everything). Per-row `was_present` flags come back in
+  the same query, so the added/updated delta needs no post-commit DB call.
+  Failures re-raised as `KGWriteError`. (Was: one `session.run` per triple,
+  each auto-committed → partial writes on mid-batch failure.)
+- **NetworkX**: `upsert_triples` snapshots the touched nodes/edges before
+  mutating; on failure restores them and raises `KGWriteError`; `_save()`
+  runs ONCE per successful batch and is now atomic (tmp + `os.replace`,
+  same pattern as the evolution snapshot writer). Removed the per-entity
+  `_save()` in `resolve_entity` (was O(n) disk writes per batch).
+- **Node**: `rollback_on_error` now calls `client.rollback(delta)` before
+  clearing `kg_delta` (was: cleared memory only — a no-op against the DB).
+- KGDelta shape unchanged (`added`/`updated`/`edges`).
+
+### (c) Tests
+
+- `tests/integration/test_kg_transactional.py` (parametrized
+  networkx + neo4j-via-fake-driver-with-real-tx-semantics): 3rd-of-4
+  failure → `KGWriteError`, `subgraph(...) == []`, no partial file/store;
+  clean retry persists all 4, re-run idempotent.
+- `tests/unit/test_graph_update_node.py`: mid-batch failure → errors
+  populated, `kg_delta` cleared, backend empty; success path persists and
+  a later rollback call does not undo committed writes.
+
+### (d) Env vars added
+
+- None.

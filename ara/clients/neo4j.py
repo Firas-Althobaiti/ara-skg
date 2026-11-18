@@ -7,10 +7,9 @@ from typing import Any
 
 from neo4j import AsyncGraphDatabase
 
+from ara.clients.kg import KGDelta, KGWriteError  # KGDelta re-exported for backwards compat
 from ara.schemas.entity import EntityRef
 from ara.schemas.triple import Provenance, Triple
-
-KGDelta = dict[str, Any]  # simple delta representation
 
 _DEFAULT_PROVENANCE = {
     "paper_id": "unknown",
@@ -18,6 +17,26 @@ _DEFAULT_PROVENANCE = {
     "span": 0,
     "extracted_by": "neo4j",
 }
+
+_UPSERT_BATCH_QUERY = """
+UNWIND $rows AS row
+MERGE (s:Entity {id: row.subject_id})
+  SET s.name = row.subject_name, s.type = row.subject_type
+MERGE (o:Entity {id: row.object_id})
+  SET o.name = row.object_name, o.type = row.object_type
+OPTIONAL MATCH (s)-[existing:REL {predicate: row.predicate}]->(o)
+WITH row, s, o, existing IS NOT NULL AS was_present
+MERGE (s)-[r:REL {predicate: row.predicate}]->(o)
+  ON CREATE SET r.confidence = row.conf,
+                r.provenance = row.prov,
+                r.first_seen = datetime()
+  ON MATCH  SET r.confidence = CASE
+                WHEN r.confidence < row.conf THEN row.conf ELSE r.confidence END,
+                r.provenance = row.prov,
+                r.last_seen = datetime()
+RETURN row.subject_id AS subject, row.predicate AS predicate,
+       row.object_id AS object, was_present
+"""
 
 
 def _to_provenance(raw: Any) -> Provenance:
@@ -75,52 +94,63 @@ class Neo4jKnowledgeGraphClient:
                 """)
 
     async def upsert_triples(self, triples: list[Triple]) -> KGDelta:
-        """MERGE each triple and return a delta of created vs. matched edges.
+        """MERGE the whole batch in ONE transaction; return a created/matched delta.
 
-        Idempotent: re-running with the same triples reports ``added == 0``.
+        The batch runs as a single ``UNWIND`` query inside
+        ``session.execute_write`` — if any row fails, Neo4j rolls back the
+        entire transaction, so no partial writes can persist. The per-row
+        created/matched flags are returned by the same query, so the delta
+        is computed without any post-commit DB round-trip. Any failure is
+        re-raised as :class:`KGWriteError`.
         """
         self.connect()
+        rows = [
+            {
+                "subject_id": t.subject.id or t.subject.name,
+                "subject_name": t.subject.name,
+                "subject_type": t.subject.type,
+                "object_id": t.object.id or t.object.name,
+                "object_name": t.object.name,
+                "object_type": t.object.type,
+                "predicate": t.predicate,
+                "conf": t.confidence,
+                "prov": t.provenance.model_dump(),
+            }
+            for t in triples
+        ]
+
+        async def _work(tx: Any) -> list[dict[str, Any]]:
+            cursor = await tx.run(_UPSERT_BATCH_QUERY, rows=rows)
+            return [dict(record) async for record in cursor]
+
+        try:
+            async with self.driver.session() as session:
+                records = await session.execute_write(_work)
+        except Exception as exc:
+            raise KGWriteError(
+                f"Neo4j batch upsert failed; transaction rolled back "
+                f"({len(triples)} triples, 0 persisted): {exc}"
+            ) from exc
+
         delta: KGDelta = {"added": 0, "updated": 0, "edges": []}
-        async with self.driver.session() as session:
-            for triple in triples:
-                subj, obj = triple.subject, triple.object
-                subj_id = subj.id or subj.name
-                obj_id = obj.id or obj.name
-                result = await session.run(
-                    """
-                    MERGE (s:Entity {id: $subject_id})
-                    SET s.name = $subject_name, s.type = $subject_type
-                    MERGE (o:Entity {id: $object_id})
-                    SET o.name = $object_name, o.type = $object_type
-                    MERGE (s)-[r:REL {predicate: $predicate}]->(o)
-                    ON CREATE SET r.confidence = $conf,
-                                  r.provenance = $prov,
-                                  r.first_seen = datetime()
-                    ON MATCH  SET r.confidence = CASE
-                                  WHEN r.confidence < $conf THEN $conf ELSE r.confidence END,
-                                  r.provenance = $prov,
-                                  r.last_seen = datetime()
-                    RETURN r.first_seen IS NOT NULL AS was_created
-                    """,
-                    subject_id=subj_id,
-                    subject_name=subj.name,
-                    subject_type=subj.type,
-                    object_id=obj_id,
-                    object_name=obj.name,
-                    object_type=obj.type,
-                    predicate=triple.predicate,
-                    conf=triple.confidence,
-                    prov=triple.provenance.model_dump(),
-                )
-                record = await result.single()
-                if record and record["was_created"]:
-                    delta["added"] += 1
-                else:
-                    delta["updated"] += 1
-                delta["edges"].append(
-                    {"subject": subj_id, "predicate": triple.predicate, "object": obj_id}
-                )
+        for rec in records:
+            if rec.get("was_present"):
+                delta["updated"] += 1
+            else:
+                delta["added"] += 1
+            delta["edges"].append(
+                {
+                    "subject": rec["subject"],
+                    "predicate": rec["predicate"],
+                    "object": rec["object"],
+                }
+            )
         return delta
+
+    async def rollback(self, delta: KGDelta) -> None:
+        """No-op for Neo4j: the batch ran in a single transaction, so a
+        failure already rolled back atomically at the database level."""
+        return None
 
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
         """Resolve a name to a canonical EntityRef (name-based resolution)."""

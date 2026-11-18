@@ -15,6 +15,7 @@ properties and is reported as ``updated`` (not ``added``).
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -22,10 +23,9 @@ from typing import Any
 
 import networkx as nx
 
+from ara.clients.kg import KGDelta, KGWriteError
 from ara.schemas.entity import EntityRef
 from ara.schemas.triple import Provenance, Triple
-
-KGDelta = dict[str, Any]  # simple delta representation
 
 
 def _slug(name: str) -> str:
@@ -40,6 +40,7 @@ class NetworkXKnowledgeGraphClient:
     def __init__(self, storage_path: str = "kg_store.json"):
         self.storage_path = Path(storage_path)
         self.graph: nx.DiGraph = nx.DiGraph()
+        self._pending_snapshot: dict[str, Any] | None = None
         self._load()
 
     # ------------------------------------------------------------------
@@ -58,6 +59,7 @@ class NetworkXKnowledgeGraphClient:
             self.graph.add_edge(edge["source"], edge["target"], **edge.get("properties", {}))
 
     def _save(self) -> None:
+        """Atomically persist the graph (tmp file + os.replace)."""
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "nodes": [{"id": n, **dict(self.graph.nodes[n])} for n in self.graph.nodes],
@@ -66,7 +68,9 @@ class NetworkXKnowledgeGraphClient:
                 for u, v in self.graph.edges
             ],
         }
-        self.storage_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        tmp_path = self.storage_path.with_suffix(self.storage_path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        os.replace(tmp_path, self.storage_path)
 
     # ------------------------------------------------------------------
     # KnowledgeGraphClient protocol
@@ -76,52 +80,124 @@ class NetworkXKnowledgeGraphClient:
         self._load()
 
     async def upsert_triples(self, triples: list[Triple]) -> KGDelta:
-        """MERGE semantics: add missing nodes/edges, refresh existing ones."""
+        """MERGE semantics: add missing nodes/edges, refresh existing ones.
+
+        Atomic: before mutating, the touched nodes/edges are snapshotted; on
+        any failure the snapshot is restored (in-memory graph back to its
+        pre-batch state) and :class:`KGWriteError` is raised — nothing is
+        persisted. On success the store is saved ONCE, atomically.
+        """
         delta: KGDelta = {"added": 0, "updated": 0, "edges": []}
         now = datetime.now(UTC).isoformat()
+
+        node_ids: set[str] = set()
+        edge_keys: set[tuple[str, str]] = set()
         for triple in triples:
-            subj, obj = triple.subject, triple.object
-            subj_id = subj.id or _slug(subj.name)
-            obj_id = obj.id or _slug(obj.name)
-            for ref, node_id in ((subj, subj_id), (obj, obj_id)):
-                if node_id not in self.graph:
-                    self.graph.add_node(
-                        node_id,
-                        name=ref.name,
-                        type=ref.type,
-                        aliases=[ref.name],
-                    )
-                    delta["added"] += 1
-            edge_key = (subj_id, obj_id)
-            props = {
-                "predicate": triple.predicate,
-                "confidence": triple.confidence,
-                "provenance": triple.provenance.model_dump(),
-                "last_seen": now,
-            }
-            if not self.graph.has_edge(*edge_key):
-                props["first_seen"] = now
-                self.graph.add_edge(*edge_key, **props)
-                delta["added"] += 1
-            else:
-                existing = self.graph.edges[edge_key]
-                existing.update(props)
-                existing["confidence"] = max(
-                    float(existing.get("confidence", 0.0)), triple.confidence
-                )
-                delta["updated"] += 1
-            delta["edges"].append(
-                {"subject": subj_id, "predicate": triple.predicate, "object": obj_id}
-            )
-        self._save()
+            subj_id = triple.subject.id or _slug(triple.subject.name)
+            obj_id = triple.object.id or _slug(triple.object.name)
+            node_ids.update((subj_id, obj_id))
+            edge_keys.add((subj_id, obj_id))
+
+        snapshot = self._snapshot_touched(node_ids, edge_keys)
+        self._pending_snapshot = snapshot
+        try:
+            for triple in triples:
+                self._apply_triple(triple, now, delta)
+        except Exception as exc:
+            self._restore_snapshot(snapshot)
+            self._pending_snapshot = None
+            raise KGWriteError(
+                f"NetworkX batch upsert failed; in-memory graph restored "
+                f"({len(triples)} triples, 0 persisted): {exc}"
+            ) from exc
+        self._pending_snapshot = None
+        self._save()  # single atomic write per batch
         return delta
 
+    def _apply_triple(self, triple: Triple, now: str, delta: KGDelta) -> None:
+        """Apply one triple to the in-memory graph, updating *delta*."""
+        subj, obj = triple.subject, triple.object
+        subj_id = subj.id or _slug(subj.name)
+        obj_id = obj.id or _slug(obj.name)
+        for ref, node_id in ((subj, subj_id), (obj, obj_id)):
+            if node_id not in self.graph:
+                self.graph.add_node(
+                    node_id,
+                    name=ref.name,
+                    type=ref.type,
+                    aliases=[ref.name],
+                )
+                delta["added"] += 1
+        edge_key = (subj_id, obj_id)
+        props = {
+            "predicate": triple.predicate,
+            "confidence": triple.confidence,
+            "provenance": triple.provenance.model_dump(),
+            "last_seen": now,
+        }
+        if not self.graph.has_edge(*edge_key):
+            props["first_seen"] = now
+            self.graph.add_edge(*edge_key, **props)
+            delta["added"] += 1
+        else:
+            existing = self.graph.edges[edge_key]
+            existing.update(props)
+            existing["confidence"] = max(float(existing.get("confidence", 0.0)), triple.confidence)
+            delta["updated"] += 1
+        delta["edges"].append({"subject": subj_id, "predicate": triple.predicate, "object": obj_id})
+
+    def _snapshot_touched(
+        self, node_ids: set[str], edge_keys: set[tuple[str, str]]
+    ) -> dict[str, Any]:
+        """Capture the current attrs of touched nodes/edges + what is absent."""
+        return {
+            "nodes": {n: dict(self.graph.nodes[n]) for n in node_ids if self.graph.has_node(n)},
+            "edges": {
+                e: dict(self.graph.edges[e[0], e[1]])
+                for e in edge_keys
+                if self.graph.has_edge(e[0], e[1])
+            },
+            "new_nodes": [n for n in node_ids if not self.graph.has_node(n)],
+            "new_edges": [e for e in edge_keys if not self.graph.has_edge(e[0], e[1])],
+        }
+
+    def _restore_snapshot(self, snapshot: dict[str, Any]) -> None:
+        """Undo a failed batch: remove added nodes/edges, restore old attrs."""
+        for u, v in snapshot["new_edges"]:
+            if self.graph.has_edge(u, v):
+                self.graph.remove_edge(u, v)
+        for n in snapshot["new_nodes"]:
+            if self.graph.has_node(n):
+                self.graph.remove_node(n)
+        for n, attrs in snapshot["nodes"].items():
+            if self.graph.has_node(n):
+                current = self.graph.nodes[n]
+                for key in list(current):
+                    del current[key]
+                current.update(attrs)
+        for (u, v), attrs in snapshot["edges"].items():
+            if self.graph.has_edge(u, v):
+                current = self.graph.edges[u, v]
+                for key in list(current):
+                    del current[key]
+                current.update(attrs)
+
+    async def rollback(self, delta: KGDelta) -> None:
+        """Restore the pre-batch snapshot of the last failed upsert."""
+        snapshot = self._pending_snapshot
+        if snapshot is not None:
+            self._restore_snapshot(snapshot)
+            self._pending_snapshot = None
+
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
-        """Resolve a name to a canonical slug id (registering the alias)."""
+        """Resolve a name to a canonical slug id (registering the alias).
+
+        In-memory only — the store is persisted once per upsert batch, not
+        per entity.
+        """
         node_id = _slug(name)
         if node_id not in self.graph:
             self.graph.add_node(node_id, name=name, type=entity_type, aliases=[name])
-            self._save()
         return EntityRef(name=name, type=entity_type, id=node_id)
 
     async def query_cypher(
