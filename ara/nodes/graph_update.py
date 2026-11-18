@@ -71,7 +71,21 @@ async def upsert_kg_node(state: ARAState) -> dict[str, Any]:
 
 
 async def rollback_on_error(state: ARAState) -> dict[str, Any]:
-    """Compensating rollback: clear the delta of the failed batch."""
+    """Compensating rollback: ask the backend to undo the failed batch.
+
+    Calls ``client.rollback(delta)`` (Neo4j: no-op, the single transaction
+    already rolled back; NetworkX: restores the pre-batch snapshot), then
+    clears the delta so downstream consumers see an empty change set.
+    """
+    client = _client()
+    delta = state.get("kg_delta")
+    if isinstance(delta, dict) and delta:
+        try:
+            await client.rollback(delta)
+        except Exception as exc:  # noqa: BLE001 - recorded in errors
+            state.setdefault("errors", []).append(f"rollback failed: {exc}")
+            state["kg_delta"] = []
+            return {"kg_delta": [], "errors": state["errors"]}
     state["kg_delta"] = []
     return {"kg_delta": []}
 

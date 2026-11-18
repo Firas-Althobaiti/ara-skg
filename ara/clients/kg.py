@@ -5,12 +5,35 @@ from typing import Any, Protocol
 from ara.schemas.entity import EntityRef
 from ara.schemas.triple import Triple
 
+KGDelta = dict[str, Any]  # {"added": int, "updated": int, "edges": [...]}
+
+
+class KGWriteError(Exception):
+    """Raised when a batch KG write fails.
+
+    Backends guarantee atomicity: on this error no partial batch is
+    persisted (Neo4j: the single transaction rolled back; NetworkX: the
+    in-memory graph was restored from the pre-batch snapshot).
+    """
+
 
 class KnowledgeGraphClient(Protocol):
     """Async protocol for a knowledge‑graph client."""
 
-    async def upsert_triples(self, triples: list[Triple]) -> dict[str, Any]:
-        """Insert or update triples; returns a delta describing changes."""
+    async def upsert_triples(self, triples: list[Triple]) -> KGDelta:
+        """Insert or update triples atomically; returns a delta describing changes.
+
+        Raises :class:`KGWriteError` on failure — after which the store is
+        guaranteed to be unchanged (no partial writes).
+        """
+
+    async def rollback(self, delta: KGDelta) -> None:
+        """Undo a failed batch described by *delta* (compensating action).
+
+        Neo4j is a no-op (the batch ran in one transaction, so a failure
+        already rolled back at the DB level); NetworkX restores the
+        pre-batch snapshot.
+        """
 
     async def resolve_entity(self, name: str, entity_type: str) -> EntityRef:
         """Resolve a name to a canonical EntityRef."""
@@ -32,6 +55,8 @@ class KnowledgeGraphClient(Protocol):
 
 # Backwards-compatible short alias used by ``ara.clients.__init__``.
 KGClient = KnowledgeGraphClient
+
+__all__ = ["KGClient", "KnowledgeGraphClient", "KGDelta", "KGWriteError", "get_kg_client"]
 
 
 def get_kg_client(settings: Any = None) -> KnowledgeGraphClient:
