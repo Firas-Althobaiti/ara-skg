@@ -97,7 +97,7 @@ async def fetch_papers(state: ARAState) -> dict[str, Any]:
     elif src == "pubmed":
         from ara.clients.pubmed import PubMedClient
 
-        client: Any = PubMedClient()
+        client: Any = PubMedClient(api_key=get_settings().NCBI_API_KEY)
         papers = await client.search_pubmed(query)
         await client.close()
     elif src == "arxiv":

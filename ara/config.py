@@ -30,6 +30,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
     NEO4J_USER: str = Field(default="neo4j")
     NEO4J_PASSWORD: str = Field(default="")
 
+    # NCBI E-utilities API key — raises the rate limit from 3 to 10 req/s
+    NCBI_API_KEY: str | None = Field(default=None)
+
     # Knowledge-graph backend: "networkx" (local JSON file, default, offline)
     # or "neo4j" (requires a running Neo4j instance, see docker-compose).
     ARA_KG_BACKEND: str = Field(default="networkx")
