@@ -11,7 +11,7 @@ from ara.schemas import ARAState, Triple, coerce_triple
 
 def _client() -> KnowledgeGraphClient:
     """KG client injected via settings (monkeypatchable in tests)."""
-    return get_settings().client  # type: ignore[return-value]
+    return get_settings().client
 
 
 async def resolve_triples_node(state: ARAState) -> dict[str, Any]:
@@ -23,7 +23,7 @@ async def resolve_triples_node(state: ARAState) -> dict[str, Any]:
     client = _client()
     valid = state.get("valid_triples", [])
     resolved: list[dict[str, Any]] = []
-    best: dict[tuple, Triple] = {}
+    best: dict[tuple[str, str, str], Triple] = {}
     for raw in valid:
         triple = coerce_triple(raw)
         key = (

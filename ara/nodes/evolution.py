@@ -13,7 +13,7 @@ async def window_triples_node(state: ARAState) -> dict[str, Any]:
     return {}
 
 
-def _key(triple: Any) -> tuple:
+def _key(triple: Any) -> tuple[str, str, str]:
     t = coerce_triple(triple)
     return (
         t.subject.id or t.subject.name,

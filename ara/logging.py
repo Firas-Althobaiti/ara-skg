@@ -1,9 +1,11 @@
 """Structured logging helper."""
 
+from typing import Any
+
 import structlog
 
 
-def get_logger(name: str = "ara"):
+def get_logger(name: str = "ara") -> Any:
     """
     Return a structured logger bound to *name*.
 

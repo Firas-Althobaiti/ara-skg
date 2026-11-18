@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Literal, TypeVar
+from typing import Literal, TypeVar, cast
 
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
@@ -35,4 +35,4 @@ def structured(llm: ChatOpenAI, schema: type[T]) -> Callable[[BaseModel], T]:
     The returned callable accepts a LangChain ``BaseMessage and returns an
     instance of ``schema.
     """
-    return llm.with_structured_output(schema)
+    return cast(Callable[[BaseModel], T], llm.with_structured_output(schema))

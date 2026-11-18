@@ -22,24 +22,24 @@ class ARAState(TypedDict, total=False):
     source: str
     route: str
     papers: list[Paper]
-    chunks: list[dict]  # raw chunk dicts (text, metadata, optional embedding)
-    extracted_entities: list[dict]
-    linked_entities: list[dict]
-    extracted_triples: list[dict]  # raw triple dicts before resolution
+    chunks: list[dict[str, Any]]  # raw chunk dicts (text, metadata, optional embedding)
+    extracted_entities: list[dict[str, Any]]
+    linked_entities: list[dict[str, Any]]
+    extracted_triples: list[dict[str, Any]]  # raw triple dicts before resolution
     valid_triples: list[Any]  # validated triples (Triple models or dicts)
     prev_valid_triples: list[Any]  # triples from the previous evolution window
-    resolved_triples: list[dict]  # triples with canonical EntityRef IDs
-    kg_delta: list[dict] | dict[str, Any]  # changes applied to the KG (add/remove)
-    retrieved_subgraph: list[dict]  # subgraph relevant to a query
+    resolved_triples: list[dict[str, Any]]  # triples with canonical EntityRef IDs
+    kg_delta: list[dict[str, Any]] | dict[str, Any]  # changes applied to the KG (add/remove)
+    retrieved_subgraph: list[dict[str, Any]]  # subgraph relevant to a query
     cypher: str
-    params: dict
-    run_result: dict  # {"result": [...], "runtime": float}
+    params: dict[str, Any]
+    run_result: dict[str, Any]  # {"result": [...], "runtime": float}
     final_answer: str
     hypotheses: list[Hypothesis]
     experiments: list[ExperimentProposal]
     experiment: Any  # single latest ExperimentProposal (model or dict)
     experiment_error: str | None
-    evolution_events: list[dict]
+    evolution_events: list[dict[str, Any]]
     evolution_report: str
     critique: str
     critique_error: str | None

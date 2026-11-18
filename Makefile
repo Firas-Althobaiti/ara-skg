@@ -17,6 +17,9 @@ cov:
 demo:
 	python scripts/demo.py
 
+eval:
+	python -m ara.eval
+
 seed:
 	python scripts/seed_neo4j.py
 
@@ -26,6 +29,6 @@ up:
 down:
 	docker compose down
 
-.PHONY: install lint type test cov demo seed up down
+.PHONY: install lint type test cov demo eval seed up down
 
 

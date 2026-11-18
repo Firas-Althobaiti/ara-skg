@@ -4,7 +4,7 @@ from ara.schemas.paper import Chunk, Paper
 
 
 class PDFClient:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     async def parse_pdf(self, source: str | bytes) -> Paper:
@@ -37,5 +37,5 @@ class PDFClient:
         )
         return paper
 
-    async def close(self):
+    async def close(self) -> None:
         pass

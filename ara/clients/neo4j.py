@@ -173,13 +173,9 @@ class Neo4jKnowledgeGraphClient:
                 s, r, o = record["s"], record["r"], record["o"]
                 triples.append(
                     Triple(
-                        subject=EntityRef(
-                            id=s["id"], name=s["name"], type=s.get("type", "other")
-                        ),
+                        subject=EntityRef(id=s["id"], name=s["name"], type=s.get("type", "other")),
                         predicate=r["predicate"],
-                        object=EntityRef(
-                            id=o["id"], name=o["name"], type=o.get("type", "other")
-                        ),
+                        object=EntityRef(id=o["id"], name=o["name"], type=o.get("type", "other")),
                         confidence=float(r.get("confidence", 0.0)),
                         provenance=_to_provenance(r.get("provenance")),
                     )
@@ -215,13 +211,9 @@ class Neo4jKnowledgeGraphClient:
                 s, r, o = record["s"], record["r"], record["o"]
                 triples.append(
                     Triple(
-                        subject=EntityRef(
-                            id=s["id"], name=s["name"], type=s.get("type", "other")
-                        ),
+                        subject=EntityRef(id=s["id"], name=s["name"], type=s.get("type", "other")),
                         predicate=r["predicate"],
-                        object=EntityRef(
-                            id=o["id"], name=o["name"], type=o.get("type", "other")
-                        ),
+                        object=EntityRef(id=o["id"], name=o["name"], type=o.get("type", "other")),
                         confidence=float(r.get("confidence", 0.0)),
                         provenance=_to_provenance(r.get("provenance")),
                     )

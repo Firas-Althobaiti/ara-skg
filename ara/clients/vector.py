@@ -43,11 +43,7 @@ class VectorStoreClient:
         """Add chunk dicts (``{"text": ..., "metadata": ...}``) to the store."""
         self._ensure_client()
         documents = [c["text"] for c in chunks]
-        metas = (
-            metadatas
-            if metadatas is not None
-            else [c.get("metadata", {}) for c in chunks]
-        )
+        metas = metadatas if metadatas is not None else [c.get("metadata", {}) for c in chunks]
         chunk_ids = (
             ids
             if ids is not None

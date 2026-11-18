@@ -8,10 +8,10 @@ from ara.schemas.paper import Chunk, Paper
 class ArXivClient:
     BASE_URL = "http://export.arxiv.org/api/query"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.http = httpx.AsyncClient(timeout=30.0)
 
-    async def close(self):
+    async def close(self) -> None:
         await self.http.aclose()
 
     async def search_arxiv(self, query: str, max_results: int = 10) -> list[Paper]:
