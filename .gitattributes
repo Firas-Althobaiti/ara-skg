@@ -1,0 +1,28 @@
+# Default: normalize all text files to LF in the repo
+* text=auto eol=lf
+
+# Explicitly declare common code files
+*.py    text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+Dockerfile   text eol=lf
+Makefile     text eol=lf
+
+# Windows-specific scripts need CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary files: never touch
+*.png   binary
+*.jpg   binary
+*.pdf   binary
+*.sqlite binary
+*.db    binary
