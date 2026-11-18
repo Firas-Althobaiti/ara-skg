@@ -1,6 +1,7 @@
-from ara.state import ARAState
+import pytest
 
 from ara.nodes.ingestion import chunk_papers, fetch_papers, persist_chunks, route_sources
+from ara.schemas import ARAState, Paper
 
 
 @pytest.mark.asyncio
@@ -32,27 +33,13 @@ async def test_route_sources_unknown():
 
 
 @pytest.mark.asyncio
-async def test_fetch_papers_mock(monkeypatch):
-    async def mock_fetch(state):
-        paper = Paper(
-            id="PMID:001",
-            source="pubmed",
-            title="Test Paper",
-            abstract="Abstract text.",
-            authors=["Alice"],
-            year=2024,
-            url=None,
-            full_text="x" * 1500,
-            chunks=[],
-        )
-        return {"papers": [paper]}
-
-    monkeypatch.setattr("ara.nodes.ingestion.fetch_papers", mock_fetch)
-
-    state = ARAState(task="ingest pubmed", papers=[])
-    papers = await fetch_papers(state)
-    assert len(papers) == 1
-    assert papers[0].id == "PMID:001"
+async def test_fetch_papers_mock():
+    state = ARAState(task="ingest mock corpus", papers=[])
+    state.update(await route_sources(state))
+    result = await fetch_papers(state)
+    papers = result["papers"]
+    assert len(papers) == 3  # mock corpus has 3 demo papers
+    assert papers[0].id == "PMID:1001"
 
 
 @pytest.mark.asyncio

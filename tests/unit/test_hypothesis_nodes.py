@@ -1,5 +1,4 @@
 import pytest
-from ara.state import ARAState
 
 from ara.nodes.hypothesis import (
     critique_hypothesis_node,
@@ -7,7 +6,7 @@ from ara.nodes.hypothesis import (
     ground_hypothesis_node,
     rank_hypotheses_node,
 )
-from ara.schemas import EntityRef, Hypothesis, Provenance, Triple
+from ara.schemas import ARAState, EntityRef, Hypothesis, Provenance, Triple
 
 
 @pytest.mark.asyncio
@@ -171,7 +170,8 @@ async def test_rank_hypotheses_node() -> None:
         "final_answer": "",
     }
     result = await rank_hypotheses_node(state)
-    assert result["hypotheses"][0].id == "h2"
+    # combined novelty + plausibility: h3=1.0 > h2=0.9 > h1=0.7
+    assert [h.id for h in result["hypotheses"]] == ["h3", "h2", "h1"]
 
 
 @pytest.mark.asyncio

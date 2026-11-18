@@ -1,28 +1,29 @@
-# File: ara/nodes/evolution.py
+"""Evolution nodes: window → detect changes → summarize into a report."""
+
+from __future__ import annotations
+
 from collections import Counter
 from typing import Any
 
-from ara.state import ARAState
+from ara.schemas import ARAState, coerce_triple
 
 
 async def window_triples_node(state: ARAState) -> dict[str, Any]:
-    """
-    Return the triples for the current time window.
-    In this simple implementation the current window is `valid_triples`
-    and the previous window is `prev_valid_triples`.
-    """
-    return state
+    """Select the current window (``valid_triples``) vs. previous window."""
+    return {}
 
 
-def _key(triple: dict[str, Any]):
-    return (triple["subject"]["id"], triple["predicate"], triple["object"]["id"])
+def _key(triple: Any) -> tuple:
+    t = coerce_triple(triple)
+    return (
+        t.subject.id or t.subject.name,
+        t.predicate,
+        t.object.id or t.object.name,
+    )
 
 
 async def detect_changes_node(state: ARAState) -> dict[str, Any]:
-    """
-    Detect emerging, fading, and relation_shift events between the
-    previous and current windows.
-    """
+    """Detect emerging / fading / relation_shift events between windows."""
     current = state.get("valid_triples", [])
     previous = state.get("prev_valid_triples", [])
 
@@ -31,37 +32,36 @@ async def detect_changes_node(state: ARAState) -> dict[str, Any]:
 
     events: list[dict[str, Any]] = []
 
-    # Emerging: present now, absent before
     for t in current:
         if _key(t) not in previous_set:
+            parsed = coerce_triple(t)
             events.append(
                 {
                     "window": "current",
-                    "entity_id": t["subject"]["id"],
+                    "entity_id": parsed.subject.id or parsed.subject.name,
                     "change_type": "emerging",
                     "before": "",
-                    "after": t["predicate"],
-                    "evidence": [t.get("provenance", {})],
+                    "after": parsed.predicate,
+                    "evidence": [parsed.provenance.model_dump()],
                 }
             )
 
-    # Fading: present before, absent now
     for t in previous:
         if _key(t) not in current_set:
+            parsed = coerce_triple(t)
             events.append(
                 {
                     "window": "previous",
-                    "entity_id": t["subject"]["id"],
+                    "entity_id": parsed.subject.id or parsed.subject.name,
                     "change_type": "fading",
-                    "before": t["predicate"],
+                    "before": parsed.predicate,
                     "after": "",
-                    "evidence": [t.get("provenance", {})],
+                    "evidence": [parsed.provenance.model_dump()],
                 }
             )
 
-    # Relation shift: predicate distribution change > 50 %
-    cur_pred = Counter(t["predicate"] for t in current)
-    prev_pred = Counter(t["predicate"] for t in previous)
+    cur_pred = Counter(coerce_triple(t).predicate for t in current)
+    prev_pred = Counter(coerce_triple(t).predicate for t in previous)
     all_preds = set(cur_pred) | set(prev_pred)
     for pred in all_preds:
         cur_count = cur_pred.get(pred, 0)
@@ -81,7 +81,7 @@ async def detect_changes_node(state: ARAState) -> dict[str, Any]:
             )
 
     state["evolution_events"] = events
-    return state
+    return {"evolution_events": events}
 
 
 async def summarize_evolution_node(state: ARAState) -> dict[str, Any]:
@@ -98,7 +98,7 @@ async def summarize_evolution_node(state: ARAState) -> dict[str, Any]:
             )
         report = "\n".join(lines)
     state["evolution_report"] = report
-    return state
+    return {"evolution_report": report}
 
 
 __all__ = ["window_triples_node", "detect_changes_node", "summarize_evolution_node"]

@@ -1,8 +1,11 @@
-# File: ara/graphs/main.py
 """Main graph – wires all subgraphs together with a supervisor and checkpointer."""
 
-from langgraph import StateGraph
-from langgraph.checkpoint.sqlite import SqliteSaver
+from __future__ import annotations
+
+from typing import Any
+
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph import END, START, StateGraph
 
 from ara.graphs.evolution import build_evolution_graph
 from ara.graphs.experiment import build_experiment_graph
@@ -12,7 +15,7 @@ from ara.graphs.hypothesis import build_hypothesis_graph
 from ara.graphs.ingestion import build_ingestion_graph
 from ara.graphs.query import build_query_graph
 from ara.nodes.supervisor import classify_intent_node, critic_node, replan_node
-from ara.state import ARAState
+from ara.schemas import ARAState
 
 SUBGRAPHS = {
     "ingestion": build_ingestion_graph,
@@ -25,19 +28,23 @@ SUBGRAPHS = {
 }
 
 
-def build_main_graph(checkpointer: "BaseCheckpointSaver | None" = None):
-    """
-    Build the top‑level StateGraph.
+def build_main_graph(checkpointer: BaseCheckpointSaver | None = None) -> Any:
+    """Build the top-level StateGraph.
+
     Nodes:
         - supervisor (classify_intent_node)
         - one node per compiled subgraph
         - critic (critic_node)
         - replan (replan_node)
+
     Edges:
         START → supervisor
-        supervisor → subgraph (conditional on state['route'])
+        supervisor → subgraph (conditional on ``state['route']``)
         subgraph → critic
         critic → END (or replan → supervisor if errors)
+
+    ``graph_update`` is interrupted before execution so a human can approve
+    KG writes (resume by re-invoking with the same thread).
     """
     g = StateGraph(ARAState)
 
@@ -48,35 +55,48 @@ def build_main_graph(checkpointer: "BaseCheckpointSaver | None" = None):
     for name, builder in SUBGRAPHS.items():
         g.add_node(name, builder())
 
-    g.set_entry_point("supervisor")
+    g.add_edge(START, "supervisor")
 
-    # conditional edges from supervisor to subgraph based on route
     g.add_conditional_edges(
         "supervisor",
         lambda s: s.get("route", "end"),
-        {name: name for name in SUBGRAPHS} | {"end": "END"},
+        {name: name for name in SUBGRAPHS} | {"end": END},
     )
 
-    # every subgraph goes to critic afterwards
     for name in SUBGRAPHS:
         g.add_edge(name, "critic")
 
-    # critic decides: END or replan
     g.add_conditional_edges(
         "critic",
-        lambda s: "replan" if s.get("needs_replan") else "END",
-        {"replan": "replan", "END": "END"},
+        lambda s: "replan" if s.get("needs_replan") else END,
+        {"replan": "replan", END: END},
     )
     g.add_edge("replan", "supervisor")
 
-    app = g.compile(
+    return g.compile(
         checkpointer=checkpointer,
         interrupt_before=["graph_update"],  # human approval before KG writes
     )
-    return app
 
 
-# Singleton app with SQLite checkpointer
-app = build_main_graph(SqliteSaver("checkpoints.sqlite"))
+def _default_checkpointer() -> BaseCheckpointSaver:
+    """SQLite checkpointer when available, otherwise in-memory.
+
+    Note: the sync ``SqliteSaver`` is used here because this factory runs at
+    import time (module-level ``app``) where no event loop exists; async code
+    paths should pass an ``AsyncSqliteSaver`` explicitly (see the e2e tests).
+    """
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+
+        return SqliteSaver("checkpoints.sqlite")
+    except ImportError:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        return MemorySaver()
+
+
+# Singleton app with a checkpointer (SQLite if the extra is installed).
+app = build_main_graph(_default_checkpointer())
 
 __all__ = ["build_main_graph", "app", "SUBGRAPHS"]

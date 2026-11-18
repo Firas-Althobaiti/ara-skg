@@ -1,5 +1,7 @@
 """Simple entity‑linking client – maps names to canonical IDs/aliases."""
 
+from __future__ import annotations
+
 from ara.schemas.entity import EntityRef
 
 
@@ -18,9 +20,7 @@ class EntityLinkingClient:
         canonical = self.aliases.get(name.lower())
         if canonical:
             return EntityRef(name=canonical, type=entity_type, id=canonical)
-        else:
-            return EntityRef(name=name, type=entity_type, id=name)
+        return EntityRef(name=name, type=entity_type, id=name)
 
     async def bulk_link(self, entities: list[EntityRef]) -> list[EntityRef]:
-        # Not needed for current implementation
-        return entities
+        return [await self.link_entity(e.name, e.type) for e in entities]

@@ -1,4 +1,10 @@
-from langgraph import Graph
+"""Hypothesis subgraph: generate → ground → rank → critique."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from langgraph.graph import END, START, StateGraph
 
 from ara.nodes.hypothesis import (
     critique_hypothesis_node,
@@ -6,41 +12,32 @@ from ara.nodes.hypothesis import (
     ground_hypothesis_node,
     rank_hypotheses_node,
 )
+from ara.schemas import ARAState
 
 
-def build_hypothesis_graph():
+def build_hypothesis_graph() -> Any:
+    """Build and compile the hypothesis subgraph.
+
+    Loops back to ``generate`` when the critique reports ``critique_error``.
     """
-    Build the Hypothesis subgraph.
-    Nodes:
-        - generate   – generate_hypotheses_node
-        - ground     – ground_hypothesis_node
-        - rank       – rank_hypotheses_node
-        - critique   – critique_hypothesis_node
-    Edges enforce linear flow; a conditional edge allows looping back to
-    ``generate if the critique reports an error (e.g., no valid hypotheses).
-    """
-    g = Graph()
-    # dummy start/end nodes required by LangGraph
-    g.add_node("START", lambda: None)
-    g.add_node("END", lambda: None)
+    g = StateGraph(ARAState)
 
-    # real processing nodes
     g.add_node("generate", generate_hypotheses_node)
     g.add_node("ground", ground_hypothesis_node)
     g.add_node("rank", rank_hypotheses_node)
     g.add_node("critique", critique_hypothesis_node)
 
-    # wiring
-    g.add_edge("START", "generate")
+    g.add_edge(START, "generate")
     g.add_edge("generate", "ground")
     g.add_edge("ground", "rank")
     g.add_edge("rank", "critique")
-    g.add_edge("critique", "END")
-
-    # conditional loop back to generate if critique reports an error
-    g.add_conditional_edge(
+    g.add_conditional_edges(
         "critique",
-        lambda state: state.get("critique_error") is not None,
-        target="generate",
+        lambda state: "generate" if state.get("critique_error") else END,
+        {"generate": "generate", END: END},
     )
-    return g
+
+    return g.compile()
+
+
+__all__ = ["build_hypothesis_graph"]

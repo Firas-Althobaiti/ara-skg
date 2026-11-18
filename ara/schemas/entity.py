@@ -10,6 +10,7 @@ class EntityRef(BaseModel):
 
     id: str | None = None
     name: str
+    type: str = "other"
 
 
 class Entity(BaseModel):

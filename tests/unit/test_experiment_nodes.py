@@ -1,8 +1,8 @@
 # File: tests/unit/test_experiment_nodes.py
 import pytest
-from ara.state import ARAState
 
 from ara.nodes.experiment import propose_experiment_node, validate_feasibility_node
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio

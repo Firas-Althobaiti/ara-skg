@@ -1,27 +1,31 @@
-# File: ara/graphs/experiment.py
-from langgraph import Graph
+"""Experiment subgraph: propose → validate (loops on validation error)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from langgraph.graph import END, START, StateGraph
 
 from ara.nodes.experiment import propose_experiment_node, validate_feasibility_node
+from ara.schemas import ARAState
 
 
-def build_experiment_graph():
-    """
-    Experiment subgraph: START → propose → validate → END.
-    Loops back to propose if validation fails (experiment_error present).
-    """
-    g = Graph()
-    g.add_node("START", lambda: None)
-    g.add_node("END", lambda: None)
+def build_experiment_graph() -> Any:
+    """Build and compile the experiment subgraph."""
+    g = StateGraph(ARAState)
+
     g.add_node("propose", propose_experiment_node)
     g.add_node("validate", validate_feasibility_node)
 
-    g.add_edge("START", "propose")
+    g.add_edge(START, "propose")
     g.add_edge("propose", "validate")
-    g.add_edge("validate", "END")
-
-    g.add_conditional_edge(
+    g.add_conditional_edges(
         "validate",
-        lambda state: state.get("experiment_error") is not None,
-        target="propose",
+        lambda state: "propose" if state.get("experiment_error") else END,
+        {"propose": "propose", END: END},
     )
-    return g
+
+    return g.compile()
+
+
+__all__ = ["build_experiment_graph"]

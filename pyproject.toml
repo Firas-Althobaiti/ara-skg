@@ -16,6 +16,7 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-settings",
     "neo4j>=5.0",
+    "networkx>=3.0",
     "chromadb>=0.4.0",
     "httpx>=0.27.0",
     "tenacity>=9.0",
@@ -23,6 +24,9 @@ dependencies = [
     "rich>=13.0",
     "typer>=0.12.0",
 ]
+
+[project.scripts]
+ara = "ara.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -33,6 +37,7 @@ dev = [
     "black",
     "mypy",
     "pre-commit",
+    "langgraph-checkpoint-sqlite>=2.0",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,3 +1,5 @@
+import pytest
+
 from ara.graphs.extraction import build_extraction_graph
 from ara.nodes.extraction import (
     extract_entities_node,

@@ -1,33 +1,37 @@
-# File: ara/graphs/evolution.py
-from langgraph import Graph
+"""Evolution subgraph: window → detect → summarize."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from langgraph.graph import END, START, StateGraph
 
 from ara.nodes.evolution import (
     detect_changes_node,
     summarize_evolution_node,
     window_triples_node,
 )
+from ara.schemas import ARAState
 
 
-def build_evolution_graph():
-    """
-    Evolution subgraph: START → window → detect → summarize → END.
-    Loops back to window if an evolution_error is present.
-    """
-    g = Graph()
-    g.add_node("START", lambda: None)
-    g.add_node("END", lambda: None)
+def build_evolution_graph() -> Any:
+    """Build and compile the evolution subgraph."""
+    g = StateGraph(ARAState)
+
     g.add_node("window", window_triples_node)
     g.add_node("detect", detect_changes_node)
     g.add_node("summarize", summarize_evolution_node)
 
-    g.add_edge("START", "window")
+    g.add_edge(START, "window")
     g.add_edge("window", "detect")
-    g.add_edge("detect", "summarize")
-    g.add_edge("summarize", "END")
-
-    g.add_conditional_edge(
+    g.add_conditional_edges(
         "detect",
-        lambda state: state.get("evolution_error") is not None,
-        target="window",
+        lambda state: "window" if state.get("evolution_error") else "summarize",
+        {"window": "window", "summarize": "summarize"},
     )
-    return g
+    g.add_edge("summarize", END)
+
+    return g.compile()
+
+
+__all__ = ["build_evolution_graph"]

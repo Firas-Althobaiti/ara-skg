@@ -1,4 +1,4 @@
-from ara.state import ARAState
+import pytest
 
 from ara.graphs.query import build_query_graph
 from ara.nodes.query import (
@@ -8,6 +8,7 @@ from ara.nodes.query import (
     run_cypher_node,
     synthesize_answer_node,
 )
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio

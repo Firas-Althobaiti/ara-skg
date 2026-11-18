@@ -1,8 +1,16 @@
-# File: ara/nodes/experiment.py
+"""Experiment nodes: propose a design for the top hypothesis → validate."""
+
+from __future__ import annotations
+
 from typing import Any
 
-from ara.schemas import ExperimentProposal
-from ara.state import ARAState
+from ara.schemas import ARAState, ExperimentProposal
+
+
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 async def _mock_llm_propose(hypothesis_id: str, statement: str) -> ExperimentProposal:
@@ -13,7 +21,7 @@ async def _mock_llm_propose(hypothesis_id: str, statement: str) -> ExperimentPro
         assay="cell_line_treatment",
         model_system="human_cells",
         controls=["vehicle"],
-        readouts=["viability"],
+        readouts=["viability", "target_phosphorylation"],
         expected_outcomes=["increased_viability"],
         risks=["off_target_effects"],
         citations=["PMID:001"],
@@ -21,15 +29,16 @@ async def _mock_llm_propose(hypothesis_id: str, statement: str) -> ExperimentPro
 
 
 async def propose_experiment_node(state: ARAState) -> dict[str, Any]:
-    """Generate an ExperimentProposal from the latest hypothesis."""
+    """Generate one ExperimentProposal from the top-ranked hypothesis."""
     hypotheses = state.get("hypotheses", [])
     if not hypotheses:
         state["experiment_error"] = "No hypothesis to base experiment on."
-        return state
-    hyp = hypotheses[-1]
-    proposal = await _mock_llm_propose(hyp["id"], hyp["statement"])
-    state["experiment"] = proposal.dict() if hasattr(proposal, "dict") else proposal
-    return state
+        return {"experiment_error": state["experiment_error"]}
+    hyp = hypotheses[0]  # hypotheses are ranked, so [0] is the best
+    proposal = await _mock_llm_propose(_get(hyp, "id", ""), _get(hyp, "statement", ""))
+    state["experiment"] = proposal.model_dump()
+    state["experiments"] = state.get("experiments", []) + [proposal]
+    return {"experiment": state["experiment"], "experiments": state["experiments"]}
 
 
 async def validate_feasibility_node(state: ARAState) -> dict[str, Any]:
@@ -37,22 +46,21 @@ async def validate_feasibility_node(state: ARAState) -> dict[str, Any]:
     exp = state.get("experiment")
     if not exp:
         state["experiment_error"] = "No experiment proposal found."
-        return state
-    if (
-        not exp.get("controls")
-        or not isinstance(exp["controls"], list)
-        or len(exp["controls"]) == 0
-    ):
+        return {"experiment_error": state["experiment_error"]}
+    controls = _get(exp, "controls", [])
+    readouts = _get(exp, "readouts", [])
+    if not controls or not isinstance(controls, list) or len(controls) == 0:
         state["experiment_error"] = "Experiment proposal missing controls."
-        return state
-    if (
-        not exp.get("readouts")
-        or not isinstance(exp["readouts"], list)
-        or len(exp["readouts"]) == 0
-    ):
+        return {"experiment_error": state["experiment_error"]}
+    if not readouts or not isinstance(readouts, list) or len(readouts) == 0:
         state["experiment_error"] = "Experiment proposal missing measurable readouts."
-        return state
-    return state
+        return {"experiment_error": state["experiment_error"]}
+    state.pop("experiment_error", None)
+    return {}
 
 
-__all__ = ["propose_experiment_node", "validate_feasibility_node"]
+# Alias matching the naming used by ``ara.nodes.__init__``.
+validate_experiment_node = validate_feasibility_node
+
+
+__all__ = ["propose_experiment_node", "validate_feasibility_node", "validate_experiment_node"]

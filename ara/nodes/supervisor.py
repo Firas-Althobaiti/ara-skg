@@ -1,16 +1,18 @@
-# File: ara/nodes/supervisor.py
-"""Supervisor node – routes the current task to the appropriate subgraph."""
+"""Supervisor nodes – route the task to a subgraph, then critic / replan."""
+
+from __future__ import annotations
 
 from typing import Any
 
-from ara.state import ARAState
+from ara.schemas import ARAState
 
 
 async def classify_intent_node(state: ARAState) -> dict[str, Any]:
-    """
-    Inspect the task description and decide which subgraph should handle it.
-    Sets ``state['route'] to one of:
-        ingestion | extraction | graph_update | query | hypothesis | experiment | evolution | end
+    """Decide which subgraph handles ``state['task']``.
+
+    Sets ``state['route']`` to one of:
+    ingestion | extraction | graph_update | query | hypothesis | experiment |
+    evolution | end
     """
     task = (state.get("task") or "").lower()
     if any(k in task for k in ("ingest", "fetch", "paper")):
@@ -31,19 +33,32 @@ async def classify_intent_node(state: ARAState) -> dict[str, Any]:
 
 
 async def critic_node(state: ARAState) -> dict[str, Any]:
-    """
-    Final grounding check – if errors are present, flag them for replanning.
-    """
+    """Final grounding check – flag errors for replanning."""
     if state.get("errors"):
         state["needs_replan"] = True
-    return state
+        return {"needs_replan": True}
+    state["needs_replan"] = False
+    return {"needs_replan": False}
 
 
 async def replan_node(state: ARAState) -> dict[str, Any]:
-    """Re‑evaluate the plan; clear errors and route back to the supervisor."""
+    """Re-evaluate the plan; clear errors and route back to the supervisor."""
     state["errors"] = []
     state["needs_replan"] = False
-    return state
+    return {"errors": [], "needs_replan": False}
 
 
-__all__ = ["classify_intent_node", "critic_node", "replan_node"]
+# Short aliases listed in ``ara.nodes.__all__``.
+classify_intent = classify_intent_node
+critic_check = critic_node
+replan_task = replan_node
+
+
+__all__ = [
+    "classify_intent_node",
+    "critic_node",
+    "replan_node",
+    "classify_intent",
+    "critic_check",
+    "replan_task",
+]

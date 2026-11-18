@@ -18,10 +18,7 @@ def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
     - ``reason → ``gpt-4o (full‑size model, low temperature)
     - ``fast   → ``gpt-4o-mini (smaller, faster model)
     """
-    if tier == "fast":
-        model_id = "gpt-4o-mini"
-    else:  # "reason"
-        model_id = "gpt-4o"
+    model_id = "gpt-4o-mini" if tier == "fast" else "gpt-4o"  # fast → mini, reason → full
 
     return ChatOpenAI(
         model=model_id,

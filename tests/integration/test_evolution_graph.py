@@ -1,4 +1,4 @@
-from ara.state import ARAState
+import pytest
 
 from ara.graphs.evolution import build_evolution_graph
 from ara.nodes.evolution import (
@@ -6,6 +6,7 @@ from ara.nodes.evolution import (
     summarize_evolution_node,
     window_triples_node,
 )
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio
@@ -59,10 +60,9 @@ async def test_evolution_graph_flow():
         **{},
     )
 
-    # Execute the evolution pipeline
-    state = await window_triples_node(state)
-    state = await detect_changes_node(state)
-    state = await summarize_evolution_node(state)
+    # Execute the evolution pipeline, merging each partial update into the state
+    for node in (window_triples_node, detect_changes_node, summarize_evolution_node):
+        state.update(await node(state))
 
     # Verify that a report was produced
     assert "evolution_report" in state

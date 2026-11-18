@@ -1,8 +1,8 @@
 # File: tests/unit/test_evolution_nodes.py
 import pytest
-from ara.state import ARAState
 
 from ara.nodes.evolution import detect_changes_node
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio

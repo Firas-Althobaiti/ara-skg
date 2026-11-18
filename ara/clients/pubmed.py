@@ -2,8 +2,7 @@
 
 import httpx
 
-from ara.schemas.chunk import Chunk
-from ara.schemas.paper import Paper
+from ara.schemas.paper import Chunk, Paper
 
 
 class PubMedClient:

@@ -1,4 +1,4 @@
-from ara.state import ARAState
+import pytest
 
 from ara.graphs.hypothesis import build_hypothesis_graph
 from ara.nodes.hypothesis import (
@@ -7,6 +7,7 @@ from ara.nodes.hypothesis import (
     ground_hypothesis_node,
     rank_hypotheses_node,
 )
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio
@@ -26,13 +27,25 @@ async def test_hypothesis_graph_flow():
             "extracted_by": "tester",
         },
     }
+    valid_triple2 = {
+        "subject": {"name": "proteinX", "type": "protein", "id": "proteinX"},
+        "predicate": "binds",
+        "object": {"name": "proteinY", "type": "protein", "id": "proteinY"},
+        "confidence": 0.8,
+        "provenance": {
+            "paper_id": "PMID:001",
+            "chunk_id": "c1",
+            "span": 0,
+            "extracted_by": "tester",
+        },
+    }
     state = ARAState(
         task="test",
         intent="query",
         papers=[],
         chunks=[],
         extracted_triples=[],
-        valid_triples=[valid_triple],
+        valid_triples=[valid_triple, valid_triple2],
         hypotheses=[],
         errors=[],
         next_step=None,
@@ -44,11 +57,14 @@ async def test_hypothesis_graph_flow():
         final_answer="",
         **{},
     )
-    # Execute the nodes sequentially (the graph will handle edges)
-    state = await generate_hypotheses_node(state)
-    state = await ground_hypothesis_node(state)
-    state = await rank_hypotheses_node(state)
-    state = await critique_hypothesis_node(state)
+    # Execute the nodes sequentially, merging each partial update into the state
+    for node in (
+        generate_hypotheses_node,
+        ground_hypothesis_node,
+        rank_hypotheses_node,
+        critique_hypothesis_node,
+    ):
+        state.update(await node(state))
 
     # Verify that we ended with at least one valid hypothesis and a critique message
     assert len(state["hypotheses"]) > 0

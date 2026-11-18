@@ -2,8 +2,7 @@
 
 import httpx
 
-from ara.schemas.chunk import Chunk
-from ara.schemas.paper import Paper
+from ara.schemas.paper import Chunk, Paper
 
 
 class ArXivClient:
@@ -42,6 +41,3 @@ class ArXivClient:
             )
             papers.append(paper)
         return papers
-
-    async def close(self):
-        await self.http.aclose()

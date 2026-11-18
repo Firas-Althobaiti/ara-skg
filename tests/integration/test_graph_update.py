@@ -29,15 +29,9 @@ async def test_upsert_idempotent(monkeypatch):
 
     # inject client via settings
     class DummySettings:
-        def get_settings(cls):
-            class Inner:
-                client = mock_client
+        client = mock_client
 
-            return Inner()
-
-        return Inner()
-
-    monkeypatch.setattr("ara.config.get_settings", lambda: DummySettings())
+    monkeypatch.setattr("ara.nodes.graph_update.get_settings", lambda: DummySettings())
 
     # Build state with two identical triples (duplicate keys)
     triple = Triple(
@@ -96,15 +90,9 @@ async def test_mid_batch_failure(monkeypatch):
             pass
 
     class DummySettings:
-        def get_settings(cls):
-            class Inner:
-                client = FailingKGClient()
+        client = FailingKGClient()
 
-            return Inner()
-
-        return Inner()
-
-    monkeypatch.setattr("ara.config.get_settings", lambda: DummySettings())
+    monkeypatch.setattr("ara.nodes.graph_update.get_settings", lambda: DummySettings())
 
     # Build state with two triples (will cause failure on second upsert)
     triple1 = Triple(

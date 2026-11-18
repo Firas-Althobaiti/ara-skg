@@ -26,3 +26,40 @@ class KnowledgeGraphClient(Protocol):
 
     async def ensure_schema(self) -> None:
         """Make sure the underlying store schema is ready."""
+
+
+# Backwards-compatible short alias used by ``ara.clients.__init__``.
+KGClient = KnowledgeGraphClient
+
+
+def get_kg_client(settings: Any = None) -> KnowledgeGraphClient:
+    """Build a KG client for the backend selected by ``settings.ARA_KG_BACKEND``.
+
+    - ``"networkx"`` (default): :class:`NetworkXKnowledgeGraphClient`, an
+      offline JSON-persisted graph — used by the demo and the CLI.
+    - ``"neo4j"``: :class:`Neo4jKnowledgeGraphClient` with a lazily connected
+      driver (the driver connects on first query, so building it is cheap).
+    """
+    if settings is None:
+        from ara.config import get_settings
+
+        settings = get_settings()
+
+    backend = str(getattr(settings, "ARA_KG_BACKEND", "networkx")).lower()
+    if backend == "networkx":
+        from ara.clients.kg_networkx import NetworkXKnowledgeGraphClient
+
+        return NetworkXKnowledgeGraphClient(
+            storage_path=str(getattr(settings, "ARA_KG_STORE", "kg_store.json"))
+        )
+    if backend == "neo4j":
+        from ara.clients.neo4j import Neo4jKnowledgeGraphClient
+
+        client = Neo4jKnowledgeGraphClient(
+            uri=settings.NEO4J_URI,
+            user=settings.NEO4J_USER,
+            password=settings.NEO4J_PASSWORD,
+        )
+        client.connect()
+        return client
+    raise ValueError(f"Unknown ARA_KG_BACKEND {backend!r} (expected 'networkx' or 'neo4j')")

@@ -1,121 +1,166 @@
+"""Hypothesis nodes: generate (mocked LLM) → ground → rank → critique."""
+
+from __future__ import annotations
+
 from typing import Any
 
-from ara.schemas import Hypothesis
-from ara.state import ARAState
+from ara.schemas import ARAState, Hypothesis, coerce_triple
 
 
-# ----------------------------------------------------------------------
-# Helper: dummy LLM call (mocked). In a real system this would call the LLM.
-# ----------------------------------------------------------------------
-class DummyMessage:
-    def __init__(self, content: str):
-        self.content = content
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
-async def _call_llm(prompt: str) -> list[Hypothesis]:
-    """
-    Mock LLM call that returns a list of 3 dummy Hypothesis objects.
-    In production this would be:
+async def _call_llm(prompt: str, triples: list[Any] | None = None) -> list[Hypothesis]:
+    """Mock LLM call returning exactly 3 :class:`Hypothesis` objects.
+
+    When *triples* (the current KG context) are provided, the hypotheses are
+    built from real extracted triples so that grounding can attach evidence;
+    otherwise three static demo hypotheses are returned.  In production this
+    would be::
+
         llm = get_llm('reason')
-        schema = HypothesisGenerationResult
-        generator = structured(llm, schema)
-        msg = DummyMessage(prompt)
-        result = await generator.run(msg)   # type: ignore
-        return result.hypotheses
+        generator = structured(llm, HypothesisGenerationResult)
+        return (await generator.ainvoke(prompt)).hypotheses
     """
-    # mock data
-    hyp1 = Hypothesis(
-        id="hyp_0",
-        statement="GeneA directly activates ProteinX",
-        mechanism="activation",
-        entities=[],
-        supporting=[],
-        contradicting=[],
-        novelty_score=0.65,
-        plausibility_score=0.70,
-        status="proposed",
-    )
-    hyp2 = Hypothesis(
-        id="hyp_1",
-        statement="ProteinX inhibition reduces diseaseY progression",
-        mechanism="inhibition",
-        entities=[],
-        supporting=[],
-        contradicting=[],
-        novelty_score=0.55,
-        plausibility_score=0.65,
-        status="proposed",
-    )
-    hyp3 = Hypothesis(
-        id="hyp_2",
-        statement="GeneA expression correlates with diseaseY severity",
-        mechanism="correlation",
-        entities=[],
-        supporting=[],
-        contradicting=[],
-        novelty_score=0.45,
-        plausibility_score=0.80,
-        status="proposed",
-    )
-    return [hyp1, hyp2, hyp3]
+    parsed = [coerce_triple(t) for t in (triples or [])]
+    if not parsed:
+        return [
+            Hypothesis(
+                id="hyp_0",
+                statement="GeneA directly activates ProteinX",
+                mechanism="activation",
+                entities=["geneA", "proteinX"],
+                supporting=[],
+                contradicting=[],
+                novelty_score=0.65,
+                plausibility_score=0.70,
+                status="proposed",
+            ),
+            Hypothesis(
+                id="hyp_1",
+                statement="ProteinX inhibition reduces diseaseY progression",
+                mechanism="inhibition",
+                entities=["proteinX", "diseaseY"],
+                supporting=[],
+                contradicting=[],
+                novelty_score=0.55,
+                plausibility_score=0.65,
+                status="proposed",
+            ),
+            Hypothesis(
+                id="hyp_2",
+                statement="GeneA expression correlates with diseaseY severity",
+                mechanism="correlation",
+                entities=["geneA", "diseaseY"],
+                supporting=[],
+                contradicting=[],
+                novelty_score=0.45,
+                plausibility_score=0.80,
+                status="proposed",
+            ),
+        ]
+    hypotheses: list[Hypothesis] = []
+    for i, triple in enumerate(parsed[:3]):
+        subj, obj = triple.subject, triple.object
+        entities = [subj.name, subj.id or subj.name, obj.name, obj.id or obj.name]
+        hypotheses.append(
+            Hypothesis(
+                id=f"hyp_{i}",
+                statement=(
+                    f"{subj.name} {triple.predicate} {obj.name} "
+                    f"({triple.provenance.paper_id}) may drive disease-relevant mechanisms"
+                ),
+                mechanism=triple.predicate,
+                entities=entities,
+                supporting=[],
+                contradicting=[],
+                novelty_score=round(max(0.0, 0.95 - 0.15 * i), 2),
+                plausibility_score=round(min(1.0, 0.6 + 0.1 * i), 2),
+                status="proposed",
+            )
+        )
+    while len(hypotheses) < 3:  # fewer than 3 triples: pad with generic ones
+        i = len(hypotheses)
+        hypotheses.append(
+            Hypothesis(
+                id=f"hyp_{i}",
+                statement=f"Exploratory hypothesis {i} from limited evidence",
+                mechanism="unknown",
+                entities=[],
+                supporting=[],
+                contradicting=[],
+                novelty_score=0.5,
+                plausibility_score=0.5,
+                status="proposed",
+            )
+        )
+    return hypotheses[:3]
 
 
 async def generate_hypotheses_node(state: ARAState) -> dict[str, Any]:
-    """Generate a list of hypotheses based on the current context."""
-    # In a real implementation we would pass the current context (e.g., valid triples)
-    # to the LLM. Here we simply call the dummy LLM.
-    hypotheses = await _call_llm("Generate 3 hypotheses based on the current context.")
+    """Generate 3 hypotheses from the current KG context (mocked LLM)."""
+    context = state.get("valid_triples") or state.get("resolved_triples") or []
+    hypotheses = await _call_llm("Generate 3 hypotheses based on the current context.", context)
     state["hypotheses"] = hypotheses
-    return state
+    return {"hypotheses": hypotheses}
 
 
 async def ground_hypothesis_node(state: ARAState) -> dict[str, Any]:
-    """Attach supporting triples to each hypothesis based on entity overlap."""
-    valid_triples: list[dict] = state.get("valid_triples", [])
-    hypotheses: list[Hypothesis] = state.get("hypotheses", [])
-
+    """Attach supporting triples to each hypothesis by entity overlap."""
+    valid_triples = state.get("valid_triples") or state.get("resolved_triples") or []
+    parsed = [coerce_triple(t) for t in valid_triples]
+    hypotheses = state.get("hypotheses", [])
     for hyp in hypotheses:
-        # naive matching: if the hypothesis mentions any entity that appears in a triple,
-        # we consider that triple supporting.
-        supporting = []
-        for triple in valid_triples:
-            # naive check: if subject or object name appears in the hypothesis entities list
-            # (hypothesis entities are stored as a list of names)
-            if hasattr(hyp, "entities") and isinstance(hyp.entities, list):
-                for triple in valid_triples:
-                    subj_name = triple["subject"]["name"]
-                    obj_name = triple["object"]["name"]
-                    if subj_name in hyp.entities or obj_name in hyp.entities:
-                        supporting.append(triple)
-        hyp["supporting"] = supporting  # attach supporting triples (as dicts)
-
-    return state
+        entities = set(_get(hyp, "entities", []) or [])
+        supporting: list[Any] = []
+        for raw, triple in zip(valid_triples, parsed, strict=False):
+            names = {
+                triple.subject.name,
+                triple.subject.id or "",
+                triple.object.name,
+                triple.object.id or "",
+            }
+            if names & entities:
+                supporting.append(raw)
+        if isinstance(hyp, dict):
+            hyp["supporting"] = supporting
+        else:
+            hyp.supporting = [coerce_triple(t) for t in supporting]
+    state["hypotheses"] = hypotheses
+    return {"hypotheses": hypotheses}
 
 
 async def rank_hypotheses_node(state: ARAState) -> dict[str, Any]:
-    """Rank hypotheses by combined novelty + plausibility score (descending)."""
-    hyps: list[Hypothesis] = state.get("hypotheses", [])
-    # sort by combined score
+    """Rank hypotheses by combined novelty + plausibility (descending)."""
+    hyps = state.get("hypotheses", [])
     hyps_sorted = sorted(
         hyps,
-        key=lambda h: (h.novelty_score + h.plausibility_score),
+        key=lambda h: (_get(h, "novelty_score", 0.0) + _get(h, "plausibility_score", 0.0)),
         reverse=True,
     )
     state["hypotheses"] = hyps_sorted
-    return state
+    return {"hypotheses": hyps_sorted}
 
 
 async def critique_hypothesis_node(state: ARAState) -> dict[str, Any]:
-    """Reject hypotheses that have fewer than two supporting triples."""
-    hyps: list[Hypothesis] = state.get("hypotheses", [])
-    valid_hyps = []
-    for hyp in hyps:
-        supporting = getattr(hyp, "supporting", [])
-        if len(valid_triples := supporting) >= 2:
-            valid_hyps.append(hyp)
+    """Reject hypotheses with fewer than two supporting triples."""
+    hyps = state.get("hypotheses", [])
+    valid_hyps = [h for h in hyps if len(_get(h, "supporting", []) or []) >= 2]
     if valid_hyps:
-        state["critique"] = "All hypotheses are well supported."
+        critique = "All hypotheses are well supported."
     else:
-        state["critique"] = "No valid hypotheses found (insufficient supporting evidence)."
+        critique = "No valid hypotheses found (insufficient supporting evidence)."
+    state["critique"] = critique
     state["hypotheses"] = valid_hyps
-    return state
+    return {"hypotheses": valid_hyps, "critique": critique}
+
+
+__all__ = [
+    "generate_hypotheses_node",
+    "ground_hypothesis_node",
+    "rank_hypotheses_node",
+    "critique_hypothesis_node",
+]

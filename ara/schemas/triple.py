@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from .entity import EntityRef
+
 
 class Provenance(BaseModel):
     """Provenance information for a extracted triple."""
@@ -20,3 +22,22 @@ class Triple(BaseModel):
     object: EntityRef
     confidence: float = Field(..., ge=0.0, le=1.0)
     provenance: Provenance
+
+
+def coerce_triple(triple: Triple | dict) -> Triple:
+    """Return *triple* as a :class:`Triple` model.
+
+    Nodes in ``ara.nodes`` store triples in the state either as ``Triple``
+    models or as plain dicts (``model_dump()``).  This helper normalises both
+    representations so every consumer can rely on attribute access.
+    """
+    if isinstance(triple, Triple):
+        return triple
+    return Triple.model_validate(triple)
+
+
+def triple_to_dict(triple: Triple | dict) -> dict:
+    """Return *triple* as a plain dict (safe for both models and dicts)."""
+    if isinstance(triple, Triple):
+        return triple.model_dump()
+    return dict(triple)

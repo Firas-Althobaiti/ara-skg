@@ -1,5 +1,4 @@
 import pytest
-from ara.state import ARAState
 
 from ara.nodes.extraction import (
     extract_entities_node,
@@ -7,6 +6,7 @@ from ara.nodes.extraction import (
     link_entities_node,
     validate_triples_node,
 )
+from ara.schemas import ARAState
 
 
 @pytest.mark.asyncio
