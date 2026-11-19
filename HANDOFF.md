@@ -453,3 +453,53 @@ schema + fuzzy entity matching in the eval):
 1. Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
 2. Full Cypher on NetworkX + Neo4j read-only enforcement + Neo4j e2e in CI
 3. Grow the gold set beyond 4 papers / 20 triples
+
+## Phase 15A — Predicate Canonicalization + Precision (#24)
+
+### (a) What changed
+- `ara/schemas/predicates.py` (NEW): `CANONICAL_PREDICATES` (20 verbs),
+  `PREDICATE_SYNONYMS` (~55 entries), idempotent `canonicalize()`, and
+  `predicate_group()` (coarse polarity classes for eval matching:
+  positive_effect = {causes, activates, interacts_with, treats},
+  negative_effect = {inhibits}).
+- Live extraction schema is a `Literal` over the 20 canonical verbs (runtime
+  assert keeps it in sync with `CANONICAL_PREDICATES`); prompt lists all 20
+  verbatim + the verbatim "Only emit predicates from this list…" and
+  "Do NOT emit more than 6 triples per abstract…" instructions + mapping hints.
+- `LLMExtractor._post_process`: confidence floor 0.6, top-`MAX_RELATIONS_PER_CHUNK`
+  (config, default 6) by confidence, before/after log. `CANONICALIZER_MODE`
+  (`rule` default, zero LLM cost; `rule+llm` optional cached fallback in
+  `ara/canonicalizer.py`, cache key includes model).
+- Pipeline + eval canonicalize predicates on both sides
+  (`ara/nodes/extraction.py`, `triple_match`); `prf1` is now bipartite
+  (non-consuming); `entity_match` = exact | Jaccard ≥ 0.5 | 2+-token
+  containment (single-token containment excluded so "BRCA1" ≠ "BRCA1 dysfunction").
+
+### (b) BEFORE/AFTER (live eval, gpt-4o-mini, real-abstract gold, 2026-11-19)
+
+| metric | v1.1.0 | v1.2A (this PR) |
+|---|---|---|
+| F1 | 0.3056 | **0.3636** |
+| precision | 0.2115 | 0.3333 |
+| recall | 0.5500 | 0.4000 |
+| distractor_rejection | 1.0000 | 1.0000 |
+| n_predicted | 52 | 24 |
+
+### (c) Honest read — target F1 ≥ 0.5 NOT met
+- Over-prediction fixed (52 → 24 predicted, ≤ 30 target ✓), distractor
+  rejection stays 1.0 ✓, mock regression unchanged (0.9333/1.0) ✓.
+- F1 0.31 → 0.36. Remaining gap is model behavior, not matching:
+  lowest-confidence accepted predictions this run included generic statements
+  ("targeted inhibition of particular DNA repair pathways treats cancer",
+  conf 0.80) while gold triples like "PARP1 facilitates DNA repair",
+  "PARP inhibitors induce gamma-H2AX foci", "BRCA1 mutations predispose_to
+  breast cancer" were missed — the cap (6/abstract) forces choosing, and
+  gpt-4o-mini does not consistently pick the curator's triples.
+- Next (v1.2B): LLM-judge matching for entity/predicate equivalence + a
+  "reason"-tier extraction pass on misses; or grow gold so F1 is less noisy.
+
+### (d) Tests
+- +17 tests (119 total): `test_predicates.py` (7), `test_extraction_precision.py`
+  (3: cap ≤ 6, conf floor 0.6, prompt contains inventory + verbatim instructions),
+  `tests/integration/test_eval_canonicalization.py` (5), `test_canonicalizer_llm.py` (4).
+- ruff/black clean; mypy --strict 0 errors in 66 files; make eval PASS.

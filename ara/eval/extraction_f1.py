@@ -20,6 +20,7 @@ from typing import Any
 
 from ara.nodes.extraction import extract_relations_node, validate_triples_node
 from ara.schemas import ARAState, Chunk, Paper, Triple, coerce_triple
+from ara.schemas.predicates import predicate_group
 
 GOLD_PATH = Path(__file__).resolve().parent / "gold" / "sample_triples.jsonl"
 GOLD_DIR = Path(__file__).resolve().parent / "gold"
@@ -163,24 +164,32 @@ def _tokens(text: str) -> set[str]:
 
 
 def entity_match(a: str, b: str, threshold: float = 0.5) -> bool:
-    """Entity-name match: exact after normalization, OR token Jaccard >= threshold.
+    """Entity-name match: exact after normalization, token Jaccard >= threshold,
+    or containment when the shorter name has >= 2 content tokens.
 
     Purely lexical — handles surface variation ("inhibition of PARP" vs
-    "PARP inhibition", "gamma-H2AX foci formation" vs "gamma-H2AX foci") without
-    changing what the triple *means*. Predicate and direction are NOT fuzzy.
+    "PARP inhibition"; "homologous recombination" inside "DNA double-strand
+    break repair by homologous recombination") without changing what the
+    triple *means*. Single-token containment is NOT allowed, so "BRCA1" does
+    not match "BRCA1 dysfunction" (keeps direction/entity distractors rejected).
+    Predicate and direction are NOT fuzzy.
     """
     na, nb = normalize(a), normalize(b)
     if na == nb:
         return True
     ta, tb = _tokens(a), _tokens(b)
-    return len(ta & tb) / len(ta | tb) >= threshold
+    if len(ta & tb) / len(ta | tb) >= threshold:
+        return True
+    smaller, larger = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return len(smaller) >= 2 and smaller <= larger
 
 
 def triple_match(p: Triple, g: Triple) -> bool:
-    """A predicted triple matches a gold triple iff the predicate matches exactly
-    (normalized) and both entity names match (see :func:`entity_match`)."""
+    """A predicted triple matches a gold triple iff the predicates are in the
+    same canonical match group (see :func:`ara.schemas.predicates.predicate_group`)
+    and both entity names match (see :func:`entity_match`)."""
     return (
-        normalize(p.predicate) == normalize(g.predicate)
+        predicate_group(p.predicate) == predicate_group(g.predicate)
         and entity_match(p.subject.name, g.subject.name)
         and entity_match(p.object.name, g.object.name)
     )
@@ -189,20 +198,17 @@ def triple_match(p: Triple, g: Triple) -> bool:
 def prf1(predicted: list[Triple], gold: list[Triple]) -> dict[str, float]:
     """Precision / recall / F1 of *predicted* against *gold*.
 
-    Matching is pairwise (:func:`triple_match`): predicate exact, entities fuzzy.
-    Each gold triple is matched at most once (greedy, deterministic order).
+    Bipartite (non-consuming) matching via :func:`triple_match`: a gold triple
+    counts as recalled if ANY predicted triple matches it, and a predicted
+    triple counts as precise if it matches ANY gold triple — so one merged
+    prediction ("induce gamma-H2AX and RAD51 foci") can recall two gold
+    triples.
     """
-    matched_gold: set[int] = set()
-    tp = 0
-    for p in predicted:
-        for i, g in enumerate(gold):
-            if i not in matched_gold and triple_match(p, g):
-                matched_gold.add(i)
-                tp += 1
-                break
+    tp_recall = sum(1 for g in gold if any(triple_match(p, g) for p in predicted))
+    tp_precision = sum(1 for p in predicted if any(triple_match(p, g) for g in gold))
     n_pred = len(predicted)
-    precision = tp / n_pred if n_pred else 0.0
-    recall = tp / len(gold) if gold else 0.0
+    precision = tp_precision / n_pred if n_pred else 0.0
+    recall = tp_recall / len(gold) if gold else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
     return {"precision": precision, "recall": recall, "f1": f1}
 

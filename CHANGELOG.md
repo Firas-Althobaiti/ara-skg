@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Predicate canonicalization (v1.2A, #24): `ara/schemas/predicates.py`
+  (20-verb `CANONICAL_PREDICATES` + ~55-entry synonym table + idempotent
+  `canonicalize()`), `Literal`-constrained live extraction schema, canonical
+  predicates applied in the pipeline and on both sides of eval matching,
+  polarity-based predicate groups + bipartite F1 in the eval, and
+  `ara/canonicalizer.py` (`CANONICALIZER_MODE=rule` default / `rule+llm`
+  cached fallback). Over-prediction guard: `MAX_RELATIONS_PER_CHUNK=6` +
+  0.6 confidence floor in `LLMExtractor`. Live eval: F1 0.3056 → 0.3636,
+  n_predicted 52 → 24, distractor_rejection stays 1.0 (target 0.5 not met —
+  see HANDOFF Phase 15A).
+
 ## [1.1.0] — 2026-11-19
 
 Phases 14A–14G. Headline: the pipeline is hardened and transactional, ingestion

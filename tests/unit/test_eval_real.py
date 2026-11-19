@@ -74,7 +74,8 @@ def test_triple_match_predicate_exact_direction_preserved() -> None:
 
     gold = _t("PARP inhibition", "causes", "apoptosis")
     assert triple_match(_t("inhibition of PARP", "causes", "apoptosis"), gold)  # fuzzy entity
-    assert not triple_match(_t("PARP inhibition", "induce", "apoptosis"), gold)  # wrong predicate
+    assert triple_match(_t("PARP inhibition", "trigger", "apoptosis"), gold)  # synonym → causes
+    assert not triple_match(_t("PARP inhibition", "inhibits", "apoptosis"), gold)  # wrong predicate
     assert not triple_match(_t("apoptosis", "causes", "PARP inhibition"), gold)  # reversed
 
 
@@ -82,14 +83,14 @@ def test_distractor_rejection_still_guards_precision() -> None:
     from ara.eval.extraction_f1 import distractor_rejection_rate
 
     distractors = [
-        _t("PARP inhibition", "induce", "apoptosis"),
+        _t("PARP inhibition", "inhibits", "apoptosis"),
         _t("apoptosis", "causes", "PARP inhibition"),
     ]
     good = [_t("inhibition of PARP", "causes", "apoptosis")]
     assert distractor_rejection_rate(good, distractors) == 1.0
     assert (
         distractor_rejection_rate(
-            good + [_t("PARP inhibition", "induce", "apoptosis")], distractors
+            good + [_t("PARP inhibition", "inhibits", "apoptosis")], distractors
         )
         == 0.5
     )
