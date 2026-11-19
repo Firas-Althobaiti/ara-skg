@@ -389,3 +389,30 @@ Two real bugs were caught by these smoke tests and fixed in follow-up PRs:
 ### (e) Live eval results
 
 - See "Phase 14F — Live Eval Results" below (manual `make eval-live`).
+
+## Phase 14F — Live Eval Results
+
+Manual `make eval-live` (EVAL_CACHE=1) against the 4 real PubMed abstracts,
+gpt-4o-mini, 2026-11-19. Three prompt iterations; best/stable configuration
+(controlled predicate inventory enforced as a `Literal` on the structured
+schema + fuzzy entity matching in the eval):
+
+| mode | f1 | precision | recall | distractor_rejection | n_predicted | n_gold |
+|---|---|---|---|---|---|---|
+| mock | 0.000 | 0.000 | 0.000 | 1.000 | 0 | 20 |
+| live | 0.306–0.333 | 0.21–0.23 | 0.55–0.60 | 1.000 | 52 | 20 |
+
+- Cost: ~7.5k tokens / ~$0.01 per full live run (well under the $0.50 cap);
+  per-call token usage is logged by `_UsageLoggingCallback`.
+- distractor_rejection = 1.0 in both modes: the matcher keeps the predicate
+  exact and direction ordered, so near-miss triples are never matched.
+- Honest read: live F1 ~0.3 is below the 0.6 "ship" bar. The residual gap is
+  gold granularity — the gold curator split/normalized triples (e.g. one
+  sentence "induce gamma-H2AX and RAD51 foci" → two gold triples
+  "induce gamma-H2AX foci" + "induce RAD51 foci"; "are important for" →
+  involved_in). Entity matching is fuzzy (token Jaccard ≥ 0.5) but predicate
+  must match exactly, so copular/voice variants the model maps differently
+  still miss. Raising F1 further means a canonicalization layer or an
+  LLM-judge matcher — noted as future work, not silently loosened here.
+- Report artifact: `artifacts/eval_live_20261119.md`; `eval-live.yml`
+  workflow_dispatch verified manually once.

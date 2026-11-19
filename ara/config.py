@@ -42,6 +42,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
     EXTRACTION_MODE: Literal["mock", "live"] = Field(default="mock")
     HYPOTHESIS_MODE: Literal["mock", "live"] = Field(default="mock")
 
+    # Optional override for the OpenAI-compatible endpoint (e.g. a proxy)
+    OPENAI_BASE_URL: str | None = Field(default=None)
+
     # File-cache LLM responses during live evals (keeps cost under the cap)
     EVAL_CACHE: bool = Field(default=False)
 

@@ -102,8 +102,15 @@ def load_gold(path: Path | str = GOLD_PATH) -> list[Triple]:
 
 
 def normalize(text: str) -> str:
-    """Normalize an entity/predicate name for matching (case + whitespace)."""
-    return re.sub(r"\s+", " ", text.strip().lower())
+    """Normalize an entity/predicate name for matching.
+
+    Case + whitespace folding, plus punctuation stripping (hyphens kept —
+    gene/protein symbols like ``gamma-H2AX`` rely on them). Purely lexical:
+    never changes which triples match semantically, only how surface forms
+    compare (e.g. a trailing "." from an LLM sentence no longer breaks a match).
+    """
+    text = re.sub(r"[^\w\s-]", "", text.strip().lower())
+    return re.sub(r"\s+", " ", text)
 
 
 def triple_key(triple: Triple | dict[str, Any]) -> tuple[str, str, str]:
@@ -124,13 +131,78 @@ async def extract_predicted(papers: list[Paper] | None = None) -> list[Triple]:
     return [coerce_triple(t) for t in state.get("valid_triples", [])]
 
 
+_STOPWORDS = {
+    "of",
+    "the",
+    "a",
+    "an",
+    "in",
+    "to",
+    "and",
+    "or",
+    "by",
+    "with",
+    "for",
+    "on",
+    "at",
+    "are",
+    "is",
+    "was",
+    "that",
+    "which",
+    "this",
+    "these",
+    "their",
+}
+
+
+def _tokens(text: str) -> set[str]:
+    """Content tokens of a normalized name (stopwords dropped)."""
+    toks = {t for t in normalize(text).split() if t not in _STOPWORDS}
+    return toks or {normalize(text)}
+
+
+def entity_match(a: str, b: str, threshold: float = 0.5) -> bool:
+    """Entity-name match: exact after normalization, OR token Jaccard >= threshold.
+
+    Purely lexical — handles surface variation ("inhibition of PARP" vs
+    "PARP inhibition", "gamma-H2AX foci formation" vs "gamma-H2AX foci") without
+    changing what the triple *means*. Predicate and direction are NOT fuzzy.
+    """
+    na, nb = normalize(a), normalize(b)
+    if na == nb:
+        return True
+    ta, tb = _tokens(a), _tokens(b)
+    return len(ta & tb) / len(ta | tb) >= threshold
+
+
+def triple_match(p: Triple, g: Triple) -> bool:
+    """A predicted triple matches a gold triple iff the predicate matches exactly
+    (normalized) and both entity names match (see :func:`entity_match`)."""
+    return (
+        normalize(p.predicate) == normalize(g.predicate)
+        and entity_match(p.subject.name, g.subject.name)
+        and entity_match(p.object.name, g.object.name)
+    )
+
+
 def prf1(predicted: list[Triple], gold: list[Triple]) -> dict[str, float]:
-    """Set-based precision / recall / F1 of *predicted* against *gold*."""
-    pred_keys = {triple_key(t) for t in predicted}
-    gold_keys = {triple_key(t) for t in gold}
-    tp = len(pred_keys & gold_keys)
-    precision = tp / len(pred_keys) if pred_keys else 0.0
-    recall = tp / len(gold_keys) if gold_keys else 0.0
+    """Precision / recall / F1 of *predicted* against *gold*.
+
+    Matching is pairwise (:func:`triple_match`): predicate exact, entities fuzzy.
+    Each gold triple is matched at most once (greedy, deterministic order).
+    """
+    matched_gold: set[int] = set()
+    tp = 0
+    for p in predicted:
+        for i, g in enumerate(gold):
+            if i not in matched_gold and triple_match(p, g):
+                matched_gold.add(i)
+                tp += 1
+                break
+    n_pred = len(predicted)
+    precision = tp / n_pred if n_pred else 0.0
+    recall = tp / len(gold) if gold else 0.0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
     return {"precision": precision, "recall": recall, "f1": f1}
 
@@ -165,12 +237,16 @@ def load_raw_abstracts() -> list[Paper]:
 
 
 def distractor_rejection_rate(predicted: list[Triple], distractors: list[Triple]) -> float:
-    """Fraction of distractor triples the extractor did NOT emit (precision guard)."""
-    distractor_keys = {triple_key(t) for t in distractors}
-    if not distractor_keys:
+    """Fraction of distractor triples the extractor did NOT emit (precision guard).
+
+    Distractors are near-misses (right entities / wrong predicate, or right
+    predicate / reversed direction), so :func:`triple_match` — exact predicate,
+    directional entities — is exactly what rejects them.
+    """
+    if not distractors:
         return 1.0
-    pred_keys = {triple_key(t) for t in predicted}
-    return 1.0 - len(pred_keys & distractor_keys) / len(distractor_keys)
+    hits = sum(1 for d in distractors if any(triple_match(p, d) for p in predicted))
+    return 1.0 - hits / len(distractors)
 
 
 async def eval_with_mode(
