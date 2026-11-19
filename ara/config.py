@@ -48,6 +48,14 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # File-cache LLM responses during live evals (keeps cost under the cap)
     EVAL_CACHE: bool = Field(default=False)
 
+    # Over-prediction guard (issue #24): cap LLM-emitted relations per chunk
+    # and drop low-confidence triples before they reach the KG/eval.
+    MAX_RELATIONS_PER_CHUNK: int = Field(default=6)
+
+    # Predicate canonicalization (issue #24): "rule" = synonym table only
+    # (zero LLM cost, default); "rule+llm" = LLM fallback for unknown predicates.
+    CANONICALIZER_MODE: Literal["rule", "rule+llm"] = Field(default="rule")
+
     # Knowledge-graph backend: "networkx" (local JSON file, default, offline)
     # or "neo4j" (requires a running Neo4j instance, see docker-compose).
     ARA_KG_BACKEND: str = Field(default="networkx")

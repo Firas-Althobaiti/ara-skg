@@ -26,7 +26,8 @@ human from real PubMed abstracts (raw abstracts committed under
 |---|---|---|---|---|---|---|
 | mock (legacy gold) | 0.9333 | — | — | — | — | 21 |
 | mock (real gold) | 0.000 | 0.0 | 0.0 | 1.0 | 0 | 20 |
-| **live (real gold)** | **0.31** | 0.21 | 0.55–0.60 | **1.0** | ~52 | 20 |
+| **live (real gold), v1.1.0** | 0.31 | 0.21 | 0.55–0.60 | **1.0** | ~52 | 20 |
+| **live (real gold), v1.2A** | **0.36** | 0.33 | 0.40 | **1.0** | 24 | 20 |
 
 The mock scores 0.0 on the real gold precisely because the real abstracts are
 natural language, not the mock's `S - p - O` format — the two golds measure
@@ -48,10 +49,10 @@ distractor set (right entities + wrong predicate, or right predicate +
 reversed direction) is a genuine precision guard: `distractor_rejection = 1.0`
 means the extractor emitted **none** of the 10 near-miss triples.
 
-## Why F1 = 0.31 is not a failure — and not a pass
+## Why F1 = 0.36 is not a failure — and not a pass
 
-The ship bar was F1 ≥ 0.6. Live F1 = 0.31, so the bar was **not met**, and we
-report that plainly. But the number decomposes honestly:
+The ship bar was F1 ≥ 0.6. Live F1 = 0.36 (0.31 at v1.1.0), so the bar was **not met**,
+and we report that plainly. But the number decomposes honestly:
 
 - `distractor_rejection = 1.0` — the LLM does not confuse predicate or
   direction; it understands the extraction task.

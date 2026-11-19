@@ -16,6 +16,7 @@ from ara.config import get_settings
 from ara.extractors import get_extractor
 from ara.logging import get_logger
 from ara.schemas import ARAState, Chunk, EntityRef, coerce_triple
+from ara.schemas.predicates import canonicalize
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -77,7 +78,11 @@ async def extract_relations_node(state: ARAState) -> dict[str, Any]:
         chunk_model = _as_chunk(chunk)
         entities = await extractor.extract_entities(chunk_model)
         for triple in await extractor.extract_relations(chunk_model, entities):
-            triples.append(triple.model_dump())
+            dumped = triple.model_dump()
+            # Canonicalize the predicate (issue #24): verbose surface forms
+            # map onto the canonical 20-verb inventory before storage/eval.
+            dumped["predicate"] = canonicalize(str(dumped["predicate"]))
+            triples.append(dumped)
     state["extracted_triples"] = triples
     return {"extracted_triples": triples}
 

@@ -14,6 +14,7 @@ from typing import Any, TypeVar, cast
 from pydantic import BaseModel
 
 from ara.llm import get_llm
+from ara.logging import get_logger
 from ara.prompts.extraction_live import (
     ENTITIES_PROMPT,
     RELATIONS_PROMPT,
@@ -25,6 +26,11 @@ from ara.schemas import Chunk, Entity, EntityRef, Provenance, Triple
 from .base import Extractor
 
 T = TypeVar("T", bound=BaseModel)
+
+# Confidence floor for LLM-emitted triples (issue #24). The critic node
+# applies a stricter 0.7 later; this floor only shapes what the extractor
+# returns.
+MIN_CONFIDENCE = 0.6
 
 
 class LLMExtractor:
@@ -86,7 +92,29 @@ class LLMExtractor:
                     ),
                 )
             )
-        return triples
+        return self._post_process(chunk, triples)
+
+    def _post_process(self, chunk: Chunk, triples: list[Triple]) -> list[Triple]:
+        """Over-prediction guard (issue #24): confidence floor + per-chunk cap.
+
+        Keeps at most ``MAX_RELATIONS_PER_CHUNK`` triples (highest confidence
+        first) and drops anything below ``MIN_CONFIDENCE``. Logs before/after.
+        """
+        from ara.config import get_settings
+
+        kept = [t for t in triples if t.confidence >= MIN_CONFIDENCE]
+        kept.sort(key=lambda t: t.confidence, reverse=True)
+        cap = get_settings().MAX_RELATIONS_PER_CHUNK
+        if len(kept) > cap:
+            kept = kept[:cap]
+        if len(kept) != len(triples):
+            get_logger("ara.extraction").info(
+                "LLM emitted N triples, kept M after cap",
+                emitted=len(triples),
+                kept=len(kept),
+                paper_id=chunk.paper_id,
+            )
+        return kept
 
 
 __all__ = ["LLMExtractor", "Extractor"]

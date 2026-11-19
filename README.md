@@ -157,10 +157,11 @@ make eval-live   # live mode — real LLM, MANUAL only, needs OPENAI_API_KEY
 | Mode | What it measures | extraction_f1 | grounding | distractor_rejection | Cost |
 |---|---|---|---|---|---|
 | **mock** (CI) | regression safety of the deterministic parser | **0.9333** | **1.0** | n/a (legacy gold) | free |
-| **live** (manual, gpt-4o-mini) | real LLM extraction vs. gold curated from 4 real PubMed abstracts | **0.31** | — | **1.0** | ~$0.01/run |
+| **live** (manual, gpt-4o-mini) | real LLM extraction vs. gold curated from 4 real PubMed abstracts | **0.36** | — | **1.0** | ~$0.01/run |
 
-Honest read: the live F1 of **0.31 is below our 0.6 bar and we are not
-pretending otherwise**. `distractor_rejection = 1.0` proves the LLM understands
+Honest read: the live F1 of **0.36 is below our 0.6 bar and we are not
+pretending otherwise** (v1.1.0 measured 0.31; predicate canonicalization + the
+6-relation cap raised precision 0.21→0.33 and cut 52→24 predictions, recall 0.40). `distractor_rejection = 1.0` proves the LLM understands
 the task; the F1 gap is a predicate-canonicalization problem, tracked for v1.2.
 
 - **extraction_f1** — F1 of the extraction pipeline vs. gold triples
@@ -203,7 +204,7 @@ make seed   # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempo
 ## Roadmap → v1.2
 
 v1.1.0 shipped the evaluation infrastructure and hardened pipelines; live F1 is
-honestly 0.31 (see [Evaluation](#evaluation) and
+honestly 0.36 (see [Evaluation](#evaluation) and
 [docs/eval-methodology.md](docs/eval-methodology.md)). Next:
 
 - Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
