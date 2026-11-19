@@ -13,8 +13,9 @@ from typing import Any
 
 from ara.clients.entity_linking import DEV_ALIAS_MAP, EntityLinkingClient
 from ara.config import get_settings
+from ara.extractors import get_extractor
 from ara.logging import get_logger
-from ara.schemas import ARAState, EntityRef, Provenance, Triple, coerce_triple
+from ara.schemas import ARAState, Chunk, EntityRef, coerce_triple
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -32,14 +33,30 @@ def _papers_chunks(state: ARAState) -> Iterator[tuple[str, Any]]:
             yield paper_id, chunk
 
 
+def _as_chunk(chunk: Any) -> Chunk:
+    return chunk if isinstance(chunk, Chunk) else Chunk.model_validate(chunk)
+
+
+def _extractor() -> Any:
+    """Active extractor from settings; logs a one-liner in live mode (cost!)."""
+    mode = get_settings().EXTRACTION_MODE
+    if mode == "live":
+        get_logger("ara.extraction").info(
+            "live extraction mode — LLM calls incur cost", mode="live"
+        )
+    return get_extractor(mode)
+
+
 async def extract_entities_node(state: ARAState) -> dict[str, Any]:
-    """Extract entity mentions from each chunk (comma-separated names)."""
+    """Extract entity mentions from each chunk via the configured extractor."""
+    extractor = _extractor()
     extracted: list[dict[str, Any]] = []
     for paper_id, chunk in _papers_chunks(state):
         text = _get(chunk, "text", "") or ""
-        names = [n.strip() for n in text.split(",") if n.strip()]
-        for name in names:
-            entity_ref = EntityRef(name=name, type="other", id=name)
+        for ent in await extractor.extract_entities(_as_chunk(chunk)):
+            entity_ref = EntityRef(
+                name=ent.canonical_name, type=ent.type, id=ent.id or ent.canonical_name
+            )
             extracted.append(
                 {"entity": entity_ref, "source_chunk": text[:30], "paper_id": paper_id}
             )
@@ -48,33 +65,19 @@ async def extract_entities_node(state: ARAState) -> dict[str, Any]:
 
 
 async def extract_relations_node(state: ARAState) -> dict[str, Any]:
-    """Extract triples from chunk text (``"subj - pred - obj; ..."``).
+    """Extract triples from chunk text via the configured extractor.
 
     The result is stored as plain dicts (``Triple.model_dump()``) in
-    ``state['extracted_triples']`` with a fixed mock confidence of 0.9.
+    ``state['extracted_triples']``; the mock extractor uses a fixed
+    confidence of 0.9.
     """
+    extractor = _extractor()
     triples: list[dict[str, Any]] = []
     for paper_id, chunk in _papers_chunks(state):
-        text = _get(chunk, "text", "") or ""
-        span = _get(chunk, "span", 0)
-        parts = [p.strip() for p in text.split(";") if p.strip()]
-        for part in parts:
-            segments = [s.strip() for s in part.split("-") if s.strip()]
-            if len(segments) == 3:
-                subj, pred, obj = segments
-                triple = Triple(
-                    subject=EntityRef(name=subj, type="other", id=subj),
-                    predicate=pred,
-                    object=EntityRef(name=obj, type="other", id=obj),
-                    confidence=0.9,
-                    provenance=Provenance(
-                        paper_id=paper_id,
-                        chunk_id=str(span),
-                        span=0,
-                        extracted_by="extract_relations_node",
-                    ),
-                )
-                triples.append(triple.model_dump())
+        chunk_model = _as_chunk(chunk)
+        entities = await extractor.extract_entities(chunk_model)
+        for triple in await extractor.extract_relations(chunk_model, entities):
+            triples.append(triple.model_dump())
     state["extracted_triples"] = triples
     return {"extracted_triples": triples}
 

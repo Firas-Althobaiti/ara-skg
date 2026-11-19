@@ -1,0 +1,43 @@
+# File: .github/workflows/eval-live.yml
+# MANUAL ONLY — workflow_dispatch. NEVER runs on push/PR (live LLM calls cost
+# money and need the OPENAI_API_KEY secret). Runs `make eval-live`, which
+# prints mock AND live extraction scores side-by-side against the
+# real-abstract gold set, and uploads the markdown report as an artifact.
+name: Eval (live LLM)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-live
+  cancel-in-progress: false
+
+jobs:
+  eval-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,eval]
+      - name: Run live eval (mock + live side-by-side)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EXTRACTION_MODE: live
+          EVAL_CACHE: "1"
+        run: make eval-live
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-live-report
+          path: artifacts/eval_live_*.md
+          if-no-files-found: warn

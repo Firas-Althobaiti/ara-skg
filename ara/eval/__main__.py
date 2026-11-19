@@ -1,25 +1,89 @@
 """``python -m ara.eval`` — run the evaluation metrics and print a rich table.
 
-Exit code is 0 when every metric meets its threshold (see ``THRESHOLDS``),
-1 otherwise — so CI can gate on ``make eval``.
+Default (``make eval``, CI): mock mode only, exits non-zero when thresholds
+are missed. With ``--live`` or ``EXTRACTION_MODE=live`` (``make eval-live``,
+manual / workflow_dispatch only): prints mock AND live extraction scores
+against the real-abstract gold set side-by-side and writes a markdown report
+under ``artifacts/eval_live_<date>.md``.
 """
 
 from __future__ import annotations
 
+import asyncio
+import os
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
 
 from ara.eval import run_eval
+from ara.eval.extraction_f1 import eval_with_mode
 
 THRESHOLDS: dict[str, float] = {"extraction_f1": 0.6, "grounding": 1.0}
 
 
+def _mode_table(console: Console, title: str, rows: list[dict[str, object]]) -> None:
+    table = Table(title=title, header_style="bold cyan")
+    for col in (
+        "mode",
+        "gold",
+        "f1",
+        "precision",
+        "recall",
+        "distractor_rejection",
+        "n_predicted",
+        "n_gold",
+    ):
+        table.add_column(col, justify="right" if col not in ("mode", "gold") else "left")
+    for r in rows:
+        table.add_row(
+            *[
+                str(r.get(c, ""))
+                for c in (
+                    "mode",
+                    "gold",
+                    "f1",
+                    "precision",
+                    "recall",
+                    "distractor_rejection",
+                    "n_predicted",
+                    "n_gold",
+                )
+            ]
+        )
+    console.print(table)
+
+
 def main() -> int:
-    """Run :func:`ara.eval.run_eval`, print a rich table, return 0 on PASS."""
-    metrics = run_eval()
+    """Run the eval; in live mode print both modes and save a report."""
     console = Console()
+    mode = os.environ.get("EXTRACTION_MODE", "mock")
+    live = "--live" in sys.argv or mode == "live"
+
+    if live:
+        mock_res = asyncio.run(eval_with_mode("mock"))
+        live_res = asyncio.run(eval_with_mode("live"))
+        _mode_table(console, "ARA-SKG extraction eval (real-abstract gold)", [mock_res, live_res])
+
+        artifacts = Path("artifacts")
+        artifacts.mkdir(exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%d")
+        report = artifacts / f"eval_live_{stamp}.md"
+        report.write_text(
+            "# Live eval report — "
+            + datetime.now(UTC).isoformat()
+            + "\n\n| mode | gold | f1 | precision | recall | distractor_rejection | n_predicted | n_gold |\n"
+            + "|---|---|---|---|---|---|---|---|\n"
+            + f"| {mock_res['mode']} | {mock_res['gold']} | {mock_res['f1']:.4f} | {mock_res['precision']:.4f} | {mock_res['recall']:.4f} | {mock_res['distractor_rejection']:.4f} | {mock_res['n_predicted']} | {mock_res['n_gold']} |\n"
+            + f"| {live_res['mode']} | {live_res['gold']} | {live_res['f1']:.4f} | {live_res['precision']:.4f} | {live_res['recall']:.4f} | {live_res['distractor_rejection']:.4f} | {live_res['n_predicted']} | {live_res['n_gold']} |\n",
+            encoding="utf-8",
+        )
+        console.print(f"[bold]report saved:[/bold] {report}")
+        return 0
+
+    metrics = run_eval()
     table = Table(title="ARA-SKG evaluation metrics", header_style="bold cyan")
     table.add_column("Metric")
     table.add_column("Value", justify="right")

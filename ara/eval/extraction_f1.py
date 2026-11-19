@@ -13,6 +13,7 @@ Matching is set-based on normalized ``(subject, predicate, object)`` name keys
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,12 @@ from ara.nodes.extraction import extract_relations_node, validate_triples_node
 from ara.schemas import ARAState, Chunk, Paper, Triple, coerce_triple
 
 GOLD_PATH = Path(__file__).resolve().parent / "gold" / "sample_triples.jsonl"
+GOLD_DIR = Path(__file__).resolve().parent / "gold"
+# Non-circular gold: hand-verified triples from REAL PubMed abstracts (raw
+# text committed under gold/raw_abstracts/ so the gold is reproducible).
+REAL_GOLD_PATH = GOLD_DIR / "real_abstracts.jsonl"
+DISTRACTOR_PATH = GOLD_DIR / "distractors.jsonl"
+RAW_ABSTRACTS_DIR = GOLD_DIR / "raw_abstracts"
 
 # The two real evaluation papers (citations in gold/README.md).  The abstract
 # field uses the mock-extractor segment format "S - p - O; ..." and includes
@@ -133,14 +140,91 @@ def extraction_f1(predicted: list[Triple], gold: list[Triple]) -> float:
     return prf1(predicted, gold)["f1"]
 
 
+def load_raw_abstracts() -> list[Paper]:
+    """Build eval Papers from the committed raw abstracts (``raw_abstracts/*.txt``)."""
+    papers: list[Paper] = []
+    for path in sorted(RAW_ABSTRACTS_DIR.glob("*.txt")):
+        pmid = path.stem
+        raw = path.read_text(encoding="utf-8")
+        title, _, abstract = raw.partition("\n\n")
+        abstract = abstract.strip()
+        papers.append(
+            Paper(
+                id=f"PMID:{pmid}",
+                source="pubmed",
+                title=title.strip(),
+                abstract=abstract,
+                authors=[],
+                year=0,
+                url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                full_text=None,
+                chunks=[Chunk(text=abstract, paper_id=f"PMID:{pmid}", span=0)],
+            )
+        )
+    return papers
+
+
+def distractor_rejection_rate(predicted: list[Triple], distractors: list[Triple]) -> float:
+    """Fraction of distractor triples the extractor did NOT emit (precision guard)."""
+    distractor_keys = {triple_key(t) for t in distractors}
+    if not distractor_keys:
+        return 1.0
+    pred_keys = {triple_key(t) for t in predicted}
+    return 1.0 - len(pred_keys & distractor_keys) / len(distractor_keys)
+
+
+async def eval_with_mode(
+    mode: Any = "mock", gold_path: Path | str = REAL_GOLD_PATH
+) -> dict[str, Any]:
+    """Run the extractor in *mode* over the real abstracts and score it.
+
+    Returns ``{"mode", "gold", "n_gold", "n_predicted", "precision",
+    "recall", "f1", "distractor_rejection"}``. ``mode="mock"`` is offline;
+    ``mode="live"`` needs ``OPENAI_API_KEY`` (and honors ``EVAL_CACHE=1``).
+    """
+    from ara.config import get_settings
+
+    old = os.environ.get("EXTRACTION_MODE")
+    os.environ["EXTRACTION_MODE"] = mode
+    get_settings.cache_clear()
+    try:
+        predicted = await extract_predicted(load_raw_abstracts())
+        gold = load_gold(gold_path)
+        distractors = load_gold(DISTRACTOR_PATH)
+        m = prf1(predicted, gold)
+        return {
+            "mode": mode,
+            "gold": Path(gold_path).name,
+            "n_gold": len(gold),
+            "n_predicted": len(predicted),
+            "precision": m["precision"],
+            "recall": m["recall"],
+            "f1": m["f1"],
+            "distractor_rejection": distractor_rejection_rate(predicted, distractors),
+        }
+    finally:
+        if old is None:
+            os.environ.pop("EXTRACTION_MODE", None)
+        else:
+            os.environ["EXTRACTION_MODE"] = old
+        get_settings.cache_clear()
+
+
 __all__ = [
     "GOLD_PATH",
+    "GOLD_DIR",
+    "REAL_GOLD_PATH",
+    "DISTRACTOR_PATH",
+    "RAW_ABSTRACTS_DIR",
     "EVAL_PAPERS",
     "eval_papers",
     "load_gold",
+    "load_raw_abstracts",
     "normalize",
     "triple_key",
     "extract_predicted",
     "prf1",
     "extraction_f1",
+    "distractor_rejection_rate",
+    "eval_with_mode",
 ]

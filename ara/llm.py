@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Literal, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
+from ara.logging import get_logger
+
 T = TypeVar("T", bound=BaseModel)
+
+
+class _UsageLoggingCallback(BaseCallbackHandler):  # type: ignore[misc]
+    """Log token usage for every LLM call so cost is visible."""
+
+    def on_llm_end(self, response: Any, **kwargs: Any) -> None:
+        llm_output = getattr(response, "llm_output", None) or {}
+        usage = llm_output.get("token_usage") if isinstance(llm_output, dict) else None
+        if usage:
+            get_logger("ara.llm").info(
+                "llm call tokens",
+                prompt_tokens=usage.get("prompt_tokens"),
+                completion_tokens=usage.get("completion_tokens"),
+                total_tokens=usage.get("total_tokens"),
+            )
 
 
 def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
@@ -25,6 +43,7 @@ def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
         temperature=0,
         max_tokens=2000,
         max_retries=3,
+        callbacks=[_UsageLoggingCallback()],
     )
 
 
