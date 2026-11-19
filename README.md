@@ -146,25 +146,32 @@ LLM** — no API key needed. `--kg-store PATH` selects the JSON store;
 
 ## Evaluation
 
+Two modes, measuring different things — see
+[docs/eval-methodology.md](docs/eval-methodology.md) for the full story.
+
 ```bash
-make eval     # == python -m ara.eval  (exits 1 below thresholds)
+make eval        # mock mode — regression gate, runs in CI (offline, free)
+make eval-live   # live mode — real LLM, MANUAL only, needs OPENAI_API_KEY
 ```
 
-```text
-          ARA-SKG evaluation metrics
-┌───────────────┬────────┬───────────┬────────┐
-│ Metric        │  Value │ Threshold │ Status │
-├───────────────┼────────┼───────────┼────────┤
-│ extraction_f1 │ 0.9333 │    >= 0.6 │ PASS   │
-│ grounding     │ 1.0000 │    >= 1.0 │ PASS   │
-└───────────────┴────────┴───────────┴────────┘
-```
+| Mode | What it measures | extraction_f1 | grounding | distractor_rejection | Cost |
+|---|---|---|---|---|---|
+| **mock** (CI) | regression safety of the deterministic parser | **0.9333** | **1.0** | n/a (legacy gold) | free |
+| **live** (manual, gpt-4o-mini) | real LLM extraction vs. gold curated from 4 real PubMed abstracts | **0.31** | — | **1.0** | ~$0.01/run |
 
-- **extraction_f1** — set-based F1 of the extraction pipeline vs. a gold set of
-  21 manually verified triples from two real PubMed papers (curation rules in
-  `ara/eval/gold/README.md`).
-- **grounding** — fraction of hypotheses with ≥ 2 provenance-linked supporting
-  triples.
+Honest read: the live F1 of **0.31 is below our 0.6 bar and we are not
+pretending otherwise**. `distractor_rejection = 1.0` proves the LLM understands
+the task; the F1 gap is a predicate-canonicalization problem, tracked for v1.2.
+
+- **extraction_f1** — F1 of the extraction pipeline vs. gold triples
+  (`ara/eval/gold/real_abstracts.jsonl`, 20 hand-verified triples; curation
+  rules in `ara/eval/gold/README.md`). Matching: predicate exact, entity
+  names fuzzy (token Jaccard ≥ 0.5).
+- **grounding** — fraction of hypotheses with ≥ 2 provenance-linked
+  supporting triples.
+- **distractor_rejection** — fraction of near-miss triples
+  (`gold/distractors.jsonl`: right entities/wrong predicate, or reversed)
+  the extractor did *not* emit.
 
 ## Configuration
 
@@ -178,7 +185,7 @@ for the NetworkX backend), `VECTOR_DIR`, and the optional LangSmith vars.
 ```bash
 make lint        # ruff + black
 make type        # mypy --strict ara
-make test        # pytest (61 tests)
+make test        # pytest (102 tests)
 make cov         # pytest --cov=ara
 make eval        # evaluation metrics
 make demo        # offline end-to-end demo
@@ -193,13 +200,16 @@ make up     # docker compose up -d   (Neo4j)
 make seed   # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempotent)
 ```
 
-## Roadmap → v1.1+
+## Roadmap → v1.2
 
-- Wire the real LLM (`ara.llm.get_llm` + structured outputs) into all nodes;
-  re-baseline eval thresholds against real extraction output
+v1.1.0 shipped the evaluation infrastructure and hardened pipelines; live F1 is
+honestly 0.31 (see [Evaluation](#evaluation) and
+[docs/eval-methodology.md](docs/eval-methodology.md)). Next:
+
+- Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
 - `Send`-based parallel chunk extraction (see ADR-0003)
-- Grow the eval gold set; full Cypher on the NetworkX backend
-- Neo4j end-to-end run in CI
+- Full Cypher on the NetworkX backend; Neo4j read-only enforcement
+- Grow the eval gold set; Neo4j end-to-end run in CI
 - See `CHANGELOG.md` → *Unreleased* for the full list
 
 ## Architecture (Mermaid)
