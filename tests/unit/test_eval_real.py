@@ -7,8 +7,8 @@ import pytest
 from ara.eval.extraction_f1 import (
     DISTRACTOR_PATH,
     GOLD_PATH,
-    REAL_GOLD_PATH,
     RAW_ABSTRACTS_DIR,
+    REAL_GOLD_PATH,
     distractor_rejection_rate,
     eval_with_mode,
     load_gold,
