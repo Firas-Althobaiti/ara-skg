@@ -294,3 +294,45 @@ ArXivClient.search_arxiv("crispr cas9", max_results=2) → 2 papers, real summar
 Two real bugs were caught by these smoke tests and fixed in follow-up PRs:
 #14 arXiv `http://` URL 301-redirects to https (httpx doesn't follow) → https URL;
 #15 CLI passed the whole task string as the query → prefix stripped.
+
+## Phase 14D — PDF, Linking, Interrupt
+
+### (a) Public symbols exported
+
+- `ara.clients.entity_linking.EntityLinkingClient(alias_map=None)` — no-op
+  by default; `link_entity` raises `ValueError` on empty names; new
+  `slugify()` helper; `DEV_ALIAS_MAP` (dev-only).
+- `Settings.LINKING_MODE: Literal["noop", "alias"]` — "alias" wires
+  DEV_ALIAS_MAP in `link_entities_node` with a structlog warning.
+- `ara.clients.pdf.PDFClient.parse_pdf(path, *, paper_id)` — keyword-only
+  required paper_id; `MAX_PDF_BYTES` (50 MB); `PDFParseError(message, path)`.
+
+### (b) What changed and why
+
+- Entity linking no longer corrupts real PubMed entities: default returns
+  `EntityRef(name=name, type=type, id=slugify(name))`; fake aliases only via
+  explicit `alias_map` / `LINKING_MODE=alias` (warns, dev-only).
+- PDF: `paper_id=""` chunks broke provenance/grounding — now required
+  (ValueError), derived from the file basename in `fetch_papers`; size cap
+  with the byte count in the error; `fitz.open`/`get_text` wrapped so
+  corrupt/encrypted PDFs raise `PDFParseError`, not bare exceptions.
+  Text extraction logic unchanged.
+- e2e: `interrupt_before=["graph_update"]` was never exercised — new real
+  LangGraph halt/resume test.
+
+### (c) Tests
+
+- `tests/unit/test_entity_linking.py`: default no-op (brca1/p53 unchanged),
+  explicit alias_map applies only to listed names, empty name → ValueError.
+- `tests/unit/test_pdf_client.py`: empty paper_id → ValueError; oversized
+  (cap monkeypatched down) → ValueError with size; corrupt bytes →
+  PDFParseError; valid fitz-generated PDF → all chunks carry paper_id.
+- `tests/e2e/test_main_graph_interrupt.py`: real run halts at
+  `next == ("graph_update",)` with KG empty, resumes on same thread, KG has
+  the triple, `next == ()`; a non-graph_update route ends without halting.
+- 89 tests total (80 + 9 new). Same local `.env` caveat as 14C for
+  test_settings_defaults (green from clean cwd; CI unaffected).
+
+### (d) Env vars added
+
+- `LINKING_MODE` (`noop` default | `alias` dev-only).

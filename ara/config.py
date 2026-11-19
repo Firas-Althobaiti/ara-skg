@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,6 +32,10 @@ class Settings(BaseSettings):  # type: ignore[misc]
 
     # NCBI E-utilities API key — raises the rate limit from 3 to 10 req/s
     NCBI_API_KEY: str | None = Field(default=None)
+
+    # Entity linking: "noop" (default, names unchanged) or "alias" (dev-only
+    # fake alias map, logs a warning — never use in production)
+    LINKING_MODE: Literal["noop", "alias"] = Field(default="noop")
 
     # Knowledge-graph backend: "networkx" (local JSON file, default, offline)
     # or "neo4j" (requires a running Neo4j instance, see docker-compose).

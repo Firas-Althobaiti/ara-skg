@@ -11,7 +11,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from ara.clients.entity_linking import EntityLinkingClient
+from ara.clients.entity_linking import DEV_ALIAS_MAP, EntityLinkingClient
+from ara.config import get_settings
+from ara.logging import get_logger
 from ara.schemas import ARAState, EntityRef, Provenance, Triple, coerce_triple
 
 
@@ -79,7 +81,13 @@ async def extract_relations_node(state: ARAState) -> dict[str, Any]:
 
 async def link_entities_node(state: ARAState) -> dict[str, Any]:
     """Resolve entity names to canonical IDs using the EntityLinkingClient."""
-    linker = EntityLinkingClient()
+    if get_settings().LINKING_MODE == "alias":
+        get_logger("ara.linking").warning(
+            "fake alias map active — dev-only, do not use in production"
+        )
+        linker = EntityLinkingClient(alias_map=DEV_ALIAS_MAP)
+    else:
+        linker = EntityLinkingClient()  # no-op by default
     extracted = state.get("extracted_entities", [])
     linked: list[dict[str, Any]] = []
     for ent in extracted:

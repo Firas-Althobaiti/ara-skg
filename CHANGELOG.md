@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] — coming in v1.1+
 
 ### Fixed
+- EntityLinkingClient is a no-op by default (names unchanged, id=slugified
+  name); the old fake alias map (brca1→geneA, p53→proteinX) is dev-only via
+  `LINKING_MODE=alias` + explicit `alias_map`, with a warning logged (#17).
+- PDF ingestion: `parse_pdf(path, *, paper_id=...)` — paper_id is required
+  (ValueError if empty), 50 MB size cap, unreadable/corrupt PDFs wrapped in
+  `PDFParseError`, and every chunk now carries the paper_id derived from the
+  file basename, so triple provenance and the grounding eval survive (#17).
+- New e2e test actually exercises `interrupt_before=["graph_update"]`: the
+  run halts before the subgraph (KG verified empty), resumes on the same
+  thread, and writes the triples; a non-graph_update route does not halt (#17).
 - PubMed client: replaced the N+1 esummary loop (which read non-existent
   `article-title` keys and stored `"Placeholder abstract."`) with one
   esearch + ONE batched `efetch rettype=abstract&retmode=xml` parsed via
