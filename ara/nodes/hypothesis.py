@@ -1,9 +1,13 @@
-"""Hypothesis nodes: generate (mocked LLM) → ground → rank → critique."""
+"""Hypothesis nodes: generate (strategy: mock default / live LLM) → ground → rank → critique."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from ara.config import get_settings
+from ara.generators import get_generator
+from ara.generators.mock import MockGenerator
+from ara.logging import get_logger
 from ara.schemas import ARAState, Hypothesis, coerce_triple
 
 
@@ -14,96 +18,26 @@ def _get(obj: Any, key: str, default: Any = None) -> Any:
 
 
 async def _call_llm(prompt: str, triples: list[Any] | None = None) -> list[Hypothesis]:
-    """Mock LLM call returning exactly 3 :class:`Hypothesis` objects.
+    """Backwards-compatible mock LLM call (tests monkeypatch this symbol).
 
-    When *triples* (the current KG context) are provided, the hypotheses are
-    built from real extracted triples so that grounding can attach evidence;
-    otherwise three static demo hypotheses are returned.  In production this
-    would be::
-
-        llm = get_llm('reason')
-        generator = structured(llm, HypothesisGenerationResult)
-        return (await generator.ainvoke(prompt)).hypotheses
+    Delegates to :class:`ara.generators.mock.MockGenerator`; the real
+    generate path goes through :func:`generate_hypotheses_node` and
+    ``get_generator(get_settings().HYPOTHESIS_MODE)``.
     """
     parsed = [coerce_triple(t) for t in (triples or [])]
-    if not parsed:
-        return [
-            Hypothesis(
-                id="hyp_0",
-                statement="GeneA directly activates ProteinX",
-                mechanism="activation",
-                entities=["geneA", "proteinX"],
-                supporting=[],
-                contradicting=[],
-                novelty_score=0.65,
-                plausibility_score=0.70,
-                status="proposed",
-            ),
-            Hypothesis(
-                id="hyp_1",
-                statement="ProteinX inhibition reduces diseaseY progression",
-                mechanism="inhibition",
-                entities=["proteinX", "diseaseY"],
-                supporting=[],
-                contradicting=[],
-                novelty_score=0.55,
-                plausibility_score=0.65,
-                status="proposed",
-            ),
-            Hypothesis(
-                id="hyp_2",
-                statement="GeneA expression correlates with diseaseY severity",
-                mechanism="correlation",
-                entities=["geneA", "diseaseY"],
-                supporting=[],
-                contradicting=[],
-                novelty_score=0.45,
-                plausibility_score=0.80,
-                status="proposed",
-            ),
-        ]
-    hypotheses: list[Hypothesis] = []
-    for i, triple in enumerate(parsed[:3]):
-        subj, obj = triple.subject, triple.object
-        entities = [subj.name, subj.id or subj.name, obj.name, obj.id or obj.name]
-        hypotheses.append(
-            Hypothesis(
-                id=f"hyp_{i}",
-                statement=(
-                    f"{subj.name} {triple.predicate} {obj.name} "
-                    f"({triple.provenance.paper_id}) may drive disease-relevant mechanisms"
-                ),
-                mechanism=triple.predicate,
-                entities=entities,
-                supporting=[],
-                contradicting=[],
-                novelty_score=round(max(0.0, 0.95 - 0.15 * i), 2),
-                plausibility_score=round(min(1.0, 0.6 + 0.1 * i), 2),
-                status="proposed",
-            )
-        )
-    while len(hypotheses) < 3:  # fewer than 3 triples: pad with generic ones
-        i = len(hypotheses)
-        hypotheses.append(
-            Hypothesis(
-                id=f"hyp_{i}",
-                statement=f"Exploratory hypothesis {i} from limited evidence",
-                mechanism="unknown",
-                entities=[],
-                supporting=[],
-                contradicting=[],
-                novelty_score=0.5,
-                plausibility_score=0.5,
-                status="proposed",
-            )
-        )
-    return hypotheses[:3]
+    return await MockGenerator().generate(parsed)
 
 
 async def generate_hypotheses_node(state: ARAState) -> dict[str, Any]:
-    """Generate 3 hypotheses from the current KG context (mocked LLM)."""
+    """Generate hypotheses from the current KG context via the configured generator."""
+    mode = get_settings().HYPOTHESIS_MODE
+    if mode == "live":
+        get_logger("ara.hypothesis").info(
+            "live hypothesis mode — LLM calls incur cost", mode="live"
+        )
+    generator = get_generator(mode)
     context = state.get("valid_triples") or state.get("resolved_triples") or []
-    hypotheses = await _call_llm("Generate 3 hypotheses based on the current context.", context)
+    hypotheses = await generator.generate([coerce_triple(t) for t in context])
     state["hypotheses"] = hypotheses
     return {"hypotheses": hypotheses}
 

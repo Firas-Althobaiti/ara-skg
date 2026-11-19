@@ -20,6 +20,9 @@ demo:
 eval:
 	python -m ara.eval
 
+eval-live:
+	EXTRACTION_MODE=live python -m ara.eval --live
+
 seed:
 	python scripts/seed_neo4j.py
 
@@ -35,6 +38,6 @@ up:
 down:
 	docker compose down
 
-.PHONY: install lint type test cov demo eval seed docs docs-build up down
+.PHONY: install lint type test cov demo eval eval-live seed docs docs-build up down
 
 

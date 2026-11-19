@@ -336,3 +336,56 @@ Two real bugs were caught by these smoke tests and fixed in follow-up PRs:
 ### (d) Env vars added
 
 - `LINKING_MODE` (`noop` default | `alias` dev-only).
+
+## Phase 14F — Real LLM Mode
+
+### (a) Public symbols exported
+
+- `ara.extractors`: `Extractor` protocol, `MockExtractor`, `LLMExtractor`,
+  `get_extractor(mode)` factory. `ara.generators`: `HypothesisGenerator`
+  protocol, `MockGenerator`, `LLMGenerator`, `get_generator(mode)`.
+- `ara.prompts.extraction_live` / `hypothesis_live`: live prompts +
+  structured-output schemas (legacy `prompts/extraction.py` untouched).
+- `Settings.EXTRACTION_MODE` / `HYPOTHESIS_MODE` (`mock` default |
+  `live`), `Settings.EVAL_CACHE` (bool).
+- `ara.eval.extraction_f1.eval_with_mode(mode, gold_path=REAL_GOLD_PATH)`,
+  `load_raw_abstracts()`, `distractor_rejection_rate()`;
+  `run_eval(mode="mock")` backward compatible.
+- `ara.eval._llm_cache`: `cache_enabled/get/set` (EVAL_CACHE=1,
+  `artifacts/.llm_cache/`, gitignored, keyed by sha256(prompt+model)).
+- `ara.llm._UsageLoggingCallback` — logs token usage per LLM call.
+
+### (b) What changed and why
+
+- Extraction/hypothesis nodes now go through the strategy factories;
+  live mode logs a one-liner that LLM calls incur cost. Mock behavior is
+  byte-identical (logic moved verbatim; `_call_llm` kept as a compat shim).
+- Eval circularity fixed: new gold `real_abstracts.jsonl` (20 triples
+  hand-verified from 4 real PubMed abstracts fetched with the 14C client;
+  raw abstracts committed under `gold/raw_abstracts/`, 5.1KB total) +
+  `distractors.jsonl` (10 near-miss triples) → `eval_with_mode` reports
+  f1 AND distractor_rejection. Legacy `sample_triples.jsonl` kept for
+  regression (mock f1 there = 0.9333, provably circular — mock parses its
+  own "S - p - O" format; on real abstracts mock f1 = 0.0, see test).
+- `make eval-live` / `eval-live.yml` (workflow_dispatch ONLY, 10-min
+  timeout, uploads `artifacts/eval_live_*.md`); CI push/PR paths unchanged.
+- test_config: runs from a clean cwd with all env vars deleted → passes
+  with AND without a real `.env`.
+
+### (c) Tests
+
+- `test_extractors.py` (mock == legacy output; factory; LLMExtractor with
+  fake LLM stub), `test_generators.py` (same pattern), `test_eval_real.py`
+  (gold files exist/sized <100KB; eval_with_mode shape; rejection <= 1.0;
+  real-gold f1 != circular-gold f1).
+- 100 tests pass (89 + 11 new), incl. test_config WITH `.env` present.
+- ruff/black clean; mypy --strict 0 errors in 64 files; make eval PASS
+  (F1 0.9333, grounding 1.0).
+
+### (d) Env vars added
+
+- `EXTRACTION_MODE`, `HYPOTHESIS_MODE` (`mock`|`live`), `EVAL_CACHE` (`1`).
+
+### (e) Live eval results
+
+- See "Phase 14F — Live Eval Results" below (manual `make eval-live`).

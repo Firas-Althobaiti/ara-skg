@@ -14,8 +14,11 @@ from ara.nodes.hypothesis import generate_hypotheses_node, ground_hypothesis_nod
 from ara.schemas import ARAState, coerce_triple
 
 from .extraction_f1 import (
+    DISTRACTOR_PATH,
     GOLD_PATH,
+    REAL_GOLD_PATH,
     eval_papers,
+    eval_with_mode,
     extract_predicted,
     extraction_f1,
     load_gold,
@@ -26,7 +29,10 @@ from .grounding import grounding_score, is_grounded
 
 __all__ = [
     "GOLD_PATH",
+    "REAL_GOLD_PATH",
+    "DISTRACTOR_PATH",
     "eval_papers",
+    "eval_with_mode",
     "extract_predicted",
     "extraction_f1",
     "load_gold",
@@ -38,23 +44,37 @@ __all__ = [
 ]
 
 
-def run_eval() -> dict[str, float]:
+def run_eval(mode: str = "mock") -> dict[str, float]:
     """Run the eval pipeline; return ``{"extraction_f1": ..., "grounding": ...}``.
 
-    Fully offline: the deterministic mocked-LLM extractor and hypothesis
-    generator are used, so no API key and no Neo4j are required.
+    ``mode="mock"`` (default) is fully offline and CI-safe; ``mode="live"``
+    uses the real LLM and requires ``OPENAI_API_KEY``.
     """
 
     async def _run() -> dict[str, float]:
-        state: ARAState = {"task": "phase-12 eval", "papers": eval_papers(), "errors": []}
-        await extract_relations_node(state)
-        await validate_triples_node(state)
-        predicted = [coerce_triple(t) for t in state.get("valid_triples", [])]
-        gold = load_gold()
-        f1 = extraction_f1(predicted, gold)
-        await generate_hypotheses_node(state)
-        await ground_hypothesis_node(state)
-        hypotheses = state.get("hypotheses", [])
-        return {"extraction_f1": f1, "grounding": grounding_score(hypotheses)}
+        import os
+
+        from ara.config import get_settings
+
+        old = os.environ.get("EXTRACTION_MODE")
+        os.environ["EXTRACTION_MODE"] = mode
+        get_settings.cache_clear()
+        try:
+            state: ARAState = {"task": "phase-12 eval", "papers": eval_papers(), "errors": []}
+            await extract_relations_node(state)
+            await validate_triples_node(state)
+            predicted = [coerce_triple(t) for t in state.get("valid_triples", [])]
+            gold = load_gold()
+            f1 = extraction_f1(predicted, gold)
+            await generate_hypotheses_node(state)
+            await ground_hypothesis_node(state)
+            hypotheses = state.get("hypotheses", [])
+            return {"extraction_f1": f1, "grounding": grounding_score(hypotheses)}
+        finally:
+            if old is None:
+                os.environ.pop("EXTRACTION_MODE", None)
+            else:
+                os.environ["EXTRACTION_MODE"] = old
+            get_settings.cache_clear()
 
     return asyncio.run(_run())

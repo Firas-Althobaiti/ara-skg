@@ -37,6 +37,14 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # fake alias map, logs a warning — never use in production)
     LINKING_MODE: Literal["noop", "alias"] = Field(default="noop")
 
+    # LLM modes: "mock" (deterministic, CI-safe default) or "live" (real LLM,
+    # requires OPENAI_API_KEY; never enabled in CI on push/PR)
+    EXTRACTION_MODE: Literal["mock", "live"] = Field(default="mock")
+    HYPOTHESIS_MODE: Literal["mock", "live"] = Field(default="mock")
+
+    # File-cache LLM responses during live evals (keeps cost under the cap)
+    EVAL_CACHE: bool = Field(default=False)
+
     # Knowledge-graph backend: "networkx" (local JSON file, default, offline)
     # or "neo4j" (requires a running Neo4j instance, see docker-compose).
     ARA_KG_BACKEND: str = Field(default="networkx")

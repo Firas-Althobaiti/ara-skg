@@ -6,7 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — coming in v1.1+
 
+### Added
+- Real LLM mode via strategy pattern: `ara/extractors/` (MockExtractor
+  default, LLMExtractor via `get_llm("fast")` + structured output) and
+  `ara/generators/` for hypotheses; `EXTRACTION_MODE` / `HYPOTHESIS_MODE`
+  (`mock` default, CI-safe; `live` requires `OPENAI_API_KEY` and logs a
+  cost warning) (#19). Live prompts in `ara/prompts/extraction_live.py` /
+  `hypothesis_live.py` (legacy prompts untouched).
+- Non-circular eval: `gold/real_abstracts.jsonl` (20 hand-verified triples
+  from 4 real PubMed abstracts committed under `gold/raw_abstracts/`) +
+  `gold/distractors.jsonl` (10 near-misses) with `eval_with_mode()`
+  reporting precision/recall/F1 **and** `distractor_rejection`; legacy
+  `sample_triples.jsonl` kept for regression (#19).
+- `make eval-live` + `eval-live.yml` (workflow_dispatch ONLY, 10-min
+  timeout, artifact upload) and `EVAL_CACHE=1` file cache
+  (`ara/eval/_llm_cache.py`, gitignored) to keep live runs under $0.50 (#19).
+- Token-usage logging on every LLM call (`ara/llm.py` callback) (#19).
+
 ### Fixed
+- `test_settings_defaults` no longer fails when a real `.env` exists — it
+  now runs from a clean cwd with all env vars deleted (#19).
 - EntityLinkingClient is a no-op by default (names unchanged, id=slugified
   name); the old fake alias map (brca1→geneA, p53→proteinX) is dev-only via
   `LINKING_MODE=alias` + explicit `alias_map`, with a warning logged (#17).
