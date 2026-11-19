@@ -73,7 +73,7 @@ async def extract_relations_node(state: ARAState) -> dict[str, Any]:
     """
     extractor = _extractor()
     triples: list[dict[str, Any]] = []
-    for paper_id, chunk in _papers_chunks(state):
+    for _paper_id, chunk in _papers_chunks(state):
         chunk_model = _as_chunk(chunk)
         entities = await extractor.extract_entities(chunk_model)
         for triple in await extractor.extract_relations(chunk_model, entities):
