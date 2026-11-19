@@ -10,6 +10,7 @@ offline with a mocked LLM.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any, cast
 
@@ -114,7 +115,9 @@ async def fetch_papers(state: ARAState) -> dict[str, Any]:
         from ara.clients.pdf import PDFClient
 
         client = PDFClient()
-        paper = await client.parse_pdf(query)
+        # paper_id from the file basename (never "" — provenance depends on it)
+        paper_id = os.path.splitext(os.path.basename(query))[0]
+        paper = await client.parse_pdf(query, paper_id=paper_id)
         papers = [paper]
         await client.close()
     else:

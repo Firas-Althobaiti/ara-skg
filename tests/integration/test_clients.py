@@ -29,7 +29,7 @@ async def test_client_instantiation():
     pdf = PDFClient()
     await pdf.close()
 
-    # Entity linking client
+    # Entity linking client — default is no-op (names unchanged)
     linker = EntityLinkingClient()
     entity = await linker.link_entity("p53", "protein")
-    assert entity.name == "proteinX"
+    assert entity.name == "p53" and entity.id == "p53"

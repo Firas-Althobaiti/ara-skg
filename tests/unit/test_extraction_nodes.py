@@ -95,8 +95,8 @@ async def test_link_entities_node():
     result = await link_entities_node(state)
     assert "linked_entities" in result
     assert len(result["linked_entities"]) > 0
-    # verify that resolved name matches expected alias
-    assert any(e["entity"].name == "proteinX" for e in result["linked_entities"])
+    # default linking is a no-op: the name is preserved (not aliased to proteinX)
+    assert any(e["entity"].name == "p53" for e in result["linked_entities"])
 
 
 @pytest.mark.asyncio
