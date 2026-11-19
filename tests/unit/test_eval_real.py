@@ -14,6 +14,7 @@ from ara.eval.extraction_f1 import (
     load_gold,
     load_raw_abstracts,
 )
+from ara.schemas import Triple
 
 
 def test_gold_files_exist_and_sized() -> None:
@@ -54,3 +55,41 @@ async def test_real_gold_measures_different_thing_than_circular_gold() -> None:
     legacy_f1 = extraction_f1(legacy_pred, load_gold(GOLD_PATH))
     assert legacy_f1 == pytest.approx(0.9333, abs=0.01)  # circular: mock scores its own format
     assert real["f1"] != legacy_f1  # real gold measures something different
+
+
+def _t(s: str, p: str, o: str) -> Triple:
+    from ara.schemas import EntityRef, Provenance
+
+    return Triple(
+        subject=EntityRef(name=s, type="other", id=s),
+        predicate=p,
+        object=EntityRef(name=o, type="other", id=o),
+        confidence=1.0,
+        provenance=Provenance(paper_id="PMID:1", chunk_id="0", span=0, extracted_by="t"),
+    )
+
+
+def test_triple_match_predicate_exact_direction_preserved() -> None:
+    from ara.eval.extraction_f1 import triple_match
+
+    gold = _t("PARP inhibition", "causes", "apoptosis")
+    assert triple_match(_t("inhibition of PARP", "causes", "apoptosis"), gold)  # fuzzy entity
+    assert not triple_match(_t("PARP inhibition", "induce", "apoptosis"), gold)  # wrong predicate
+    assert not triple_match(_t("apoptosis", "causes", "PARP inhibition"), gold)  # reversed
+
+
+def test_distractor_rejection_still_guards_precision() -> None:
+    from ara.eval.extraction_f1 import distractor_rejection_rate
+
+    distractors = [
+        _t("PARP inhibition", "induce", "apoptosis"),
+        _t("apoptosis", "causes", "PARP inhibition"),
+    ]
+    good = [_t("inhibition of PARP", "causes", "apoptosis")]
+    assert distractor_rejection_rate(good, distractors) == 1.0
+    assert (
+        distractor_rejection_rate(
+            good + [_t("PARP inhibition", "induce", "apoptosis")], distractors
+        )
+        == 0.5
+    )

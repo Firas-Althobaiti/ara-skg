@@ -35,8 +35,14 @@ def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
 
     - ``reason → ``gpt-4o (full‑size model, low temperature)
     - ``fast   → ``gpt-4o-mini (smaller, faster model)
+
+    Credentials come from Settings (which reads ``.env``), not only from
+    ``os.environ`` — so a project-local ``.env`` is enough for live mode.
     """
+    from ara.config import get_settings
+
     model_id = "gpt-4o-mini" if tier == "fast" else "gpt-4o"  # fast → mini, reason → full
+    settings = get_settings()
 
     return ChatOpenAI(
         model=model_id,
@@ -44,6 +50,8 @@ def get_llm(tier: Literal["reason", "fast"] = "reason") -> ChatOpenAI:
         max_tokens=2000,
         max_retries=3,
         callbacks=[_UsageLoggingCallback()],
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_BASE_URL,
     )
 
 

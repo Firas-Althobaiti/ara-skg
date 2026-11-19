@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout, artifact upload) and `EVAL_CACHE=1` file cache
   (`ara/eval/_llm_cache.py`, gitignored) to keep live runs under $0.50 (#19).
 - Token-usage logging on every LLM call (`ara/llm.py` callback) (#19).
+- Eval matching is now lexical-but-meaningful: predicate exact (normalized),
+  direction preserved, entity names fuzzy (token Jaccard ≥ 0.5 after
+  stopword/punctuation normalization) — so surface variants match but
+  wrong-predicate / reversed distractors are still rejected (#19 follow-up).
+- `get_llm()` passes `OPENAI_API_KEY`/`OPENAI_BASE_URL` from Settings (reads
+  `.env`), so live mode works with a project-local `.env` (#19 follow-up).
+- Live extraction constrains the predicate to a standard biomedical relation
+  inventory via a `Literal` on the structured-output schema (#19 follow-up).
 
 ### Fixed
 - `test_settings_defaults` no longer fails when a real `.env` exists — it
