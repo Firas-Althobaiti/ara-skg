@@ -25,6 +25,7 @@ nav:
       - "0003 — Send fan-out": adr/0003-send-fanout.md
       - "0004 — Interrupt before": adr/0004-interrupt-before.md
   - Prompts: prompts.md
+  - Evaluation methodology: eval-methodology.md
   - Changelog: changelog.md
 markdown_extensions:
   - admonition

@@ -416,3 +416,40 @@ schema + fuzzy entity matching in the eval):
   LLM-judge matcher — noted as future work, not silently loosened here.
 - Report artifact: `artifacts/eval_live_20261119.md`; `eval-live.yml`
   workflow_dispatch verified manually once.
+
+## Phase 14G — v1.1.0 Release
+
+### (a) What shipped across 14A–14F
+- Transactional KG writes on both backends (single-tx Neo4j, atomic tmp+replace
+  NetworkX, `KGWriteError`/`rollback`) (#11)
+- Real PubMed/arXiv ingestion: batched efetch, real abstracts, tenacity
+  retries, `NCBI_API_KEY`, zero-hit errors (#12)
+- PDF provenance enforcement (required `paper_id`, 50MB cap, `PDFParseError`),
+  entity-linking no-op default (`LINKING_MODE`), real e2e
+  `interrupt_before=["graph_update"]` halt/resume test (#17)
+- Real LLM mode via strategy pattern (`EXTRACTION_MODE`/`HYPOTHESIS_MODE`,
+  mock default / live opt-in) + non-circular eval (real-abstract gold 20
+  triples + 10 distractors, `distractor_rejection`) + `make eval-live` /
+  `eval-live.yml` (workflow_dispatch only) + `EVAL_CACHE` + token logging (#19–#21)
+
+### (b) The honest F1 story
+- Mock regression (CI): F1 = 0.9333, grounding = 1.0 — legacy gold, circular by
+  construction, kept only as a regression gate.
+- Live (manual, gpt-4o-mini, real-abstract gold): **F1 = 0.31, precision 0.21,
+  recall 0.55–0.60, distractor_rejection = 1.0, ~$0.01/run**. The 0.6 ship bar
+  was NOT met and is stated as such in README, CHANGELOG Known Limitations, and
+  docs/eval-methodology.md. Root cause: predicate canonicalization missing —
+  exact-predicate matching counts curator normalizations ("are important for"
+  → `involved_in`) as misses even when the LLM's semantics are right.
+
+### (c) Release artifacts
+- `README.md` "Evaluation" section: mock vs live table, plain statement of 0.31
+- `docs/eval-methodology.md` (new, linked from README + mkdocs nav): what each
+  mode measures, matching rules, why 0.31 ≠ failure, reproduce steps
+- `CHANGELOG.md` `[1.1.0]` with Added / Fixed / Known Limitations / Roadmap v1.2
+- Tag `v1.1.0` + GitHub release on main
+
+### (d) v1.2 roadmap
+1. Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
+2. Full Cypher on NetworkX + Neo4j read-only enforcement + Neo4j e2e in CI
+3. Grow the gold set beyond 4 papers / 20 triples

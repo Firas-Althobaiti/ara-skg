@@ -4,70 +4,75 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — coming in v1.1+
+## [Unreleased]
+
+## [1.1.0] — 2026-11-19
+
+Phases 14A–14G. Headline: the pipeline is hardened and transactional, ingestion
+fetches real papers, and the eval can measure a **real LLM** — with honest
+numbers (live F1 = 0.31, below the 0.6 bar; see Known Limitations).
 
 ### Added
-- Real LLM mode via strategy pattern: `ara/extractors/` (MockExtractor
-  default, LLMExtractor via `get_llm("fast")` + structured output) and
-  `ara/generators/` for hypotheses; `EXTRACTION_MODE` / `HYPOTHESIS_MODE`
-  (`mock` default, CI-safe; `live` requires `OPENAI_API_KEY` and logs a
-  cost warning) (#19). Live prompts in `ara/prompts/extraction_live.py` /
-  `hypothesis_live.py` (legacy prompts untouched).
-- Non-circular eval: `gold/real_abstracts.jsonl` (20 hand-verified triples
-  from 4 real PubMed abstracts committed under `gold/raw_abstracts/`) +
-  `gold/distractors.jsonl` (10 near-misses) with `eval_with_mode()`
-  reporting precision/recall/F1 **and** `distractor_rejection`; legacy
-  `sample_triples.jsonl` kept for regression (#19).
-- `make eval-live` + `eval-live.yml` (workflow_dispatch ONLY, 10-min
-  timeout, artifact upload) and `EVAL_CACHE=1` file cache
-  (`ara/eval/_llm_cache.py`, gitignored) to keep live runs under $0.50 (#19).
-- Token-usage logging on every LLM call (`ara/llm.py` callback) (#19).
-- Eval matching is now lexical-but-meaningful: predicate exact (normalized),
-  direction preserved, entity names fuzzy (token Jaccard ≥ 0.5 after
-  stopword/punctuation normalization) — so surface variants match but
-  wrong-predicate / reversed distractors are still rejected (#19 follow-up).
-- `get_llm()` passes `OPENAI_API_KEY`/`OPENAI_BASE_URL` from Settings (reads
-  `.env`), so live mode works with a project-local `.env` (#19 follow-up).
-- Live extraction constrains the predicate to a standard biomedical relation
-  inventory via a `Literal` on the structured-output schema (#19 follow-up).
+- Strategy-pattern extraction/hypothesis: `ara/extractors/` + `ara/generators/`
+  (`mock` default, CI-safe; `live` via `get_llm(...)` + structured output),
+  `EXTRACTION_MODE` / `HYPOTHESIS_MODE`, live prompts in
+  `ara/prompts/extraction_live.py` / `hypothesis_live.py` (legacy prompts
+  untouched), cost warning when live (#19, #20).
+- Non-circular eval: `gold/real_abstracts.jsonl` (20 hand-verified triples from
+  4 real PubMed abstracts, raw abstracts committed under `gold/raw_abstracts/`)
+  + `gold/distractors.jsonl` (10 near-miss triples); `eval_with_mode()` reports
+  precision/recall/F1 **and** `distractor_rejection`; legacy
+  `sample_triples.jsonl` kept for regression (#19, #20).
+- `make eval-live` + `.github/workflows/eval-live.yml` (**workflow_dispatch
+  ONLY**, 10-min timeout, report artifact), `EVAL_CACHE=1` file cache
+  (`ara/eval/_llm_cache.py`, gitignored, < $0.50/run cap), and per-call
+  token-usage logging in `ara/llm.py` (#19).
+- Eval matching is lexical-but-meaningful: predicate exact (normalized),
+  direction preserved, entity names fuzzy (token Jaccard ≥ 0.5) — surface
+  variants match, wrong-predicate/reversed distractors still rejected; live
+  predicates constrained to a biomedical relation inventory via `Literal`;
+  `get_llm()` reads `OPENAI_API_KEY`/`OPENAI_BASE_URL` from Settings (`.env`
+  aware) (#21).
+- Real PubMed/arXiv ingestion: one esearch + one batched `efetch` parsed with
+  stdlib ElementTree (real titles, multi-section abstracts, authors, year,
+  DOI); arXiv Atom feed with URL-encoded params and real summaries; both
+  clients retry individual HTTP calls with tenacity backoff+jitter;
+  `NCBI_API_KEY` support; zero-hit queries raise instead of silently
+  returning empty (#12).
+- Transactional KG writes on both backends: Neo4j upserts run as ONE
+  transaction per batch (atomic), NetworkX writes via tmp+`os.replace`,
+  `KGWriteError` + `rollback(delta)` on the client protocol (#11).
+- PDF provenance enforcement: `parse_pdf(path, *, paper_id=...)` required,
+  50 MB cap, `PDFParseError` on corrupt files, chunk paper_id derived from
+  the filename; `EntityLinkingClient` is a no-op by default (`LINKING_MODE`,
+  fake alias map dev-only with warning); e2e test that actually exercises
+  `interrupt_before=["graph_update"]` halt/resume (#17).
 
 ### Fixed
-- `test_settings_defaults` no longer fails when a real `.env` exists — it
-  now runs from a clean cwd with all env vars deleted (#19).
-- EntityLinkingClient is a no-op by default (names unchanged, id=slugified
-  name); the old fake alias map (brca1→geneA, p53→proteinX) is dev-only via
-  `LINKING_MODE=alias` + explicit `alias_map`, with a warning logged (#17).
-- PDF ingestion: `parse_pdf(path, *, paper_id=...)` — paper_id is required
-  (ValueError if empty), 50 MB size cap, unreadable/corrupt PDFs wrapped in
-  `PDFParseError`, and every chunk now carries the paper_id derived from the
-  file basename, so triple provenance and the grounding eval survive (#17).
-- New e2e test actually exercises `interrupt_before=["graph_update"]`: the
-  run halts before the subgraph (KG verified empty), resumes on the same
-  thread, and writes the triples; a non-graph_update route does not halt (#17).
-- PubMed client: replaced the N+1 esummary loop (which read non-existent
-  `article-title` keys and stored `"Placeholder abstract."`) with one
-  esearch + ONE batched `efetch rettype=abstract&retmode=xml` parsed via
-  stdlib ElementTree — real titles, multi-section abstracts, authors, year,
-  DOI lookup. Zero hits now raise `ValueError` instead of silently
-  returning an empty list (#12).
-- arXiv client: query params are now URL-encoded via httpx `params` (spaces
-  and `&` no longer break the URL); the Atom feed is parsed for real
-  `<summary>` abstracts, normalized titles, authors, published year, and
-  version-stripped ids (`…v2` removed) (#12).
-- Both clients retry individual HTTP calls (429/5xx/transport errors) with
-  tenacity exponential backoff + jitter, 4 attempts (`ara/clients/_retry.py`);
-  `NCBI_API_KEY` is supported via params and raises the NCBI limit to
-  10 req/s (#12).
+- Unbounded replan loop crashing on persistent errors (bounded retries).
+- PDF ingestion setting `paper_id=""`, breaking provenance and the grounding
+  eval (#17).
+- `EntityLinkingClient` hard-coded fake aliases (brca1→geneA, p53→proteinX)
+  mislabeling real PubMed entities (#17).
+- PubMed N+1 requests reading non-existent XML keys and storing
+  `"Placeholder abstract."`; arXiv raw string interpolation breaking on
+  spaces/`&` (#12).
+- `test_settings_defaults` failing when a real `.env` exists (now runs from a
+  clean cwd with env vars deleted) (#19).
 
-- Wire the real LLM (`ara.llm.get_llm` + structured outputs) into the extraction,
-  hypothesis, query and evolution nodes; re-baseline the eval thresholds
-  (F1 >= 0.6, grounding == 1.0) against real extraction output.
-- Grow the eval gold set beyond 2 papers / 21 triples before using F1 as a
-  release gate.
-- Full Cypher support on the NetworkX backend (currently a read-only
-  `MATCH ... RETURN ...` subset; full Cypher requires Neo4j).
-- Real Neo4j end-to-end run in CI (seed idempotency is currently verified
-  against the NetworkX client only).
+### Known Limitations (v1.1)
+- **Live eval F1 = 0.31 against the real-abstract gold — the 0.6 ship bar was
+  NOT met.** `distractor_rejection = 1.0` shows the LLM understands the task;
+  the F1 gap is a predicate-matching problem (no canonicalization layer yet).
+  Tracked for v1.2. See `docs/eval-methodology.md`.
+- NetworkX `query_cypher` remains a read-only `MATCH ... RETURN ...` subset;
+  use the Neo4j backend for full Cypher.
+- Neo4j read-only enforcement deferred to v1.2.
+
+### Roadmap → v1.2
+- Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
+- Full Cypher support on the NetworkX backend
+- Real Neo4j end-to-end run in CI
 
 ## [1.0.0] — 2026-11-18
 
