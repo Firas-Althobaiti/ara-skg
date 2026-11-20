@@ -214,8 +214,38 @@ def prf1(predicted: list[Triple], gold: list[Triple]) -> dict[str, float]:
 
 
 def extraction_f1(predicted: list[Triple], gold: list[Triple]) -> float:
-    """F1 of *predicted* triples against the *gold* set."""
+    """F1 of *predicted* triples against the *gold* set (rule-based only)."""
     return prf1(predicted, gold)["f1"]
+
+
+async def prf1_judged(predicted: list[Triple], gold: list[Triple], judge: Any) -> dict[str, float]:
+    """Precision / recall / F1 with an LLM judge for rule-unmatched pairs.
+
+    Same bipartite (non-consuming) semantics as :func:`prf1`, but a pair the
+    rule-based :func:`triple_match` rejects is offered to *judge* (a
+    :class:`ara.eval.judge.TripleJudge`) before it counts as a miss. The judge
+    itself re-checks the rule fast path and skips pairs whose entities differ,
+    so LLM calls are only spent on predicate-mismatch pairs. Mock mode must
+    keep using plain :func:`prf1` — the judge is live-eval only.
+    """
+    match: dict[tuple[int, int], bool] = {}
+    for i, p in enumerate(predicted):
+        for j, g in enumerate(gold):
+            if triple_match(p, g):
+                match[(i, j)] = True
+            else:
+                match[(i, j)] = await judge.equivalent(p, g)
+    tp_recall = sum(
+        1 for j in range(len(gold)) if any(match.get((i, j)) for i in range(len(predicted)))
+    )
+    tp_precision = sum(
+        1 for i in range(len(predicted)) if any(match.get((i, j)) for j in range(len(gold)))
+    )
+    n_pred = len(predicted)
+    precision = tp_precision / n_pred if n_pred else 0.0
+    recall = tp_recall / len(gold) if gold else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}
 
 
 def load_raw_abstracts() -> list[Paper]:
@@ -261,19 +291,42 @@ async def eval_with_mode(
     """Run the extractor in *mode* over the real abstracts and score it.
 
     Returns ``{"mode", "gold", "n_gold", "n_predicted", "precision",
-    "recall", "f1", "distractor_rejection"}``. ``mode="mock"`` is offline;
-    ``mode="live"`` needs ``OPENAI_API_KEY`` (and honors ``EVAL_CACHE=1``).
+    "recall", "f1", "distractor_rejection", "judge"}``. ``mode="mock"`` is
+    offline and always rule-based (no LLM, no cost); ``mode="live"`` needs
+    ``OPENAI_API_KEY`` (and honors ``EVAL_CACHE=1``) and additionally uses the
+    LLM judge (``JUDGE_MODE=rule+llm``) for prediction/gold pairs the rules
+    reject. ``distractor_rejection`` is ALWAYS rule-based only — the judge
+    must never accept distractors.
     """
     from ara.config import get_settings
 
     old = os.environ.get("EXTRACTION_MODE")
+    old_judge = os.environ.get("JUDGE_MODE")
     os.environ["EXTRACTION_MODE"] = mode
+    # mock eval: rule-based matching only (no LLM, no cost); live: judge on.
+    os.environ["JUDGE_MODE"] = "rule+llm" if mode == "live" else "rule"
     get_settings.cache_clear()
     try:
         predicted = await extract_predicted(load_raw_abstracts())
         gold = load_gold(gold_path)
         distractors = load_gold(DISTRACTOR_PATH)
-        m = prf1(predicted, gold)
+        if mode == "live" and get_settings().JUDGE_MODE == "rule+llm":
+            from ara.eval.judge import TripleJudge
+
+            judge = TripleJudge()
+            m = await prf1_judged(predicted, gold, judge)
+            judge.log_summary()
+            judge_stats: dict[str, Any] = judge.stats()
+        else:
+            m = prf1(predicted, gold)
+            judge_stats = {
+                "total": 0,
+                "rule_matched": 0,
+                "llm_judged": 0,
+                "llm_accepted": 0,
+                "cache_hits": 0,
+                "max_calls": get_settings().MAX_JUDGE_CALLS,
+            }
         return {
             "mode": mode,
             "gold": Path(gold_path).name,
@@ -283,12 +336,17 @@ async def eval_with_mode(
             "recall": m["recall"],
             "f1": m["f1"],
             "distractor_rejection": distractor_rejection_rate(predicted, distractors),
+            "judge": judge_stats,
         }
     finally:
         if old is None:
             os.environ.pop("EXTRACTION_MODE", None)
         else:
             os.environ["EXTRACTION_MODE"] = old
+        if old_judge is None:
+            os.environ.pop("JUDGE_MODE", None)
+        else:
+            os.environ["JUDGE_MODE"] = old_judge
         get_settings.cache_clear()
 
 
@@ -306,6 +364,7 @@ __all__ = [
     "triple_key",
     "extract_predicted",
     "prf1",
+    "prf1_judged",
     "extraction_f1",
     "distractor_rejection_rate",
     "eval_with_mode",

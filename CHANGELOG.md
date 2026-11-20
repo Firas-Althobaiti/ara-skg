@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- LLM-judge matching in the live eval (#28): `ara/eval/judge.py`
+  (`TripleJudge` — rule fast-path, cached structured-output judge with
+  `JudgeVerdict{equivalent, confidence, reason}`), `ara/prompts/judge.py`
+  (`JUDGE_PROMPT` v1), async `prf1_judged()` in `ara/eval/extraction_f1.py`,
+  config `JUDGE_MODE` (`rule` default; `rule+llm` in live eval only) and
+  `MAX_JUDGE_CALLS=100` budget guard raising `BudgetExceededError`. Judge
+  verdicts cached by (prompt version, model, normalized pred/gold hashes);
+  distractor rejection stays rule-based only. Mock eval path unchanged.
+
 ## [1.2.0] — 2026-11-19
 
 ### Added
