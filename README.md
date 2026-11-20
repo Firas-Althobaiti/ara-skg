@@ -154,15 +154,19 @@ make eval        # mock mode — regression gate, runs in CI (offline, free)
 make eval-live   # live mode — real LLM, MANUAL only, needs OPENAI_API_KEY
 ```
 
-| Mode | What it measures | extraction_f1 | grounding | distractor_rejection | Cost |
-|---|---|---|---|---|---|
-| **mock** (CI) | regression safety of the deterministic parser | **0.9333** | **1.0** | n/a (legacy gold) | free |
-| **live** (manual, gpt-4o-mini) | real LLM extraction vs. gold curated from 4 real PubMed abstracts | **0.36** | — | **1.0** | ~$0.01/run |
+| mode              | F1     | precision | recall | distractor_rejection | n_predicted |
+|-------------------|--------|-----------|--------|----------------------|-------------|
+| mock (CI)         | 0.9333 | —         | —      | —                    | —           |
+| live v1.1.0       | 0.3056 | 0.2115    | 0.5500 | 1.0000               | 52          |
+| live v1.2.0       | 0.3636 | 0.3333    | 0.4000 | 1.0000               | 24          |
 
-Honest read: the live F1 of **0.36 is below our 0.6 bar and we are not
-pretending otherwise** (v1.1.0 measured 0.31; predicate canonicalization + the
-6-relation cap raised precision 0.21→0.33 and cut 52→24 predictions, recall 0.40). `distractor_rejection = 1.0` proves the LLM understands
-the task; the F1 gap is a predicate-canonicalization problem, tracked for v1.2.
+v1.2.0 doubles precision (+58%) and halves over-prediction by
+capping relations per abstract at 6. F1 improved from 0.31 to 0.36,
+still below our 0.5 target. The recall drop (0.55→0.40) is the cost
+of the cap — v1.3 addresses it with LLM-judge matching, a larger
+gold set, and an optional reason-tier model (gpt-4o). We publish
+these numbers as-is rather than hide behind the 0.93 mock score,
+which measures a deterministic parser against strings it produced.
 
 - **extraction_f1** — F1 of the extraction pipeline vs. gold triples
   (`ara/eval/gold/real_abstracts.jsonl`, 20 hand-verified triples; curation
@@ -186,7 +190,7 @@ for the NetworkX backend), `VECTOR_DIR`, and the optional LangSmith vars.
 ```bash
 make lint        # ruff + black
 make type        # mypy --strict ara
-make test        # pytest (102 tests)
+make test        # pytest (119 tests)
 make cov         # pytest --cov=ara
 make eval        # evaluation metrics
 make demo        # offline end-to-end demo
@@ -201,17 +205,17 @@ make up     # docker compose up -d   (Neo4j)
 make seed   # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempotent)
 ```
 
-## Roadmap → v1.2
+## Roadmap → v1.3+
 
-v1.1.0 shipped the evaluation infrastructure and hardened pipelines; live F1 is
-honestly 0.36 (see [Evaluation](#evaluation) and
-[docs/eval-methodology.md](docs/eval-methodology.md)). Next:
+v1.2.0 shipped predicate canonicalization + the over-prediction cap (live F1
+0.31 → 0.36, precision 0.21 → 0.33, recall 0.55 → 0.40 — see
+[Evaluation](#evaluation) and [docs/eval-methodology.md](docs/eval-methodology.md)).
+Next:
 
-- Predicate canonicalization + LLM-judge matching in the eval (close the F1 gap)
-- `Send`-based parallel chunk extraction (see ADR-0003)
-- Full Cypher on the NetworkX backend; Neo4j read-only enforcement
-- Grow the eval gold set; Neo4j end-to-end run in CI
-- See `CHANGELOG.md` → *Unreleased* for the full list
+- LLM-judge matching (predicate equivalence beyond canonicalization)
+- Bigger gold set (50–100 triples from curated papers)
+- Optional gpt-4o reason-tier pass on missed gold
+- Neo4j read-only enforcement (deferred from v1.1)
 
 ## Architecture (Mermaid)
 
