@@ -49,6 +49,31 @@ distractor set (right entities + wrong predicate, or right predicate +
 reversed direction) is a genuine precision guard: `distractor_rejection = 1.0`
 means the extractor emitted **none** of the 10 near-miss triples.
 
+## Tradeoffs (v1.2.0)
+
+The MAX_RELATIONS_PER_CHUNK=6 cap is a deliberate precision lever.
+Without it, the LLM emits ~52 triples for 20 gold triples — precision
+is capped at 0.38 even if every emitted triple were correct. With the
+cap:
+  - Precision: 0.2115 → 0.3333 (+58%)
+  - Recall:    0.5500 → 0.4000 (−27%)
+  - F1:        0.3056 → 0.3636 (+19%)
+
+The recall drop is the tradeoff. gpt-4o-mini under a 6-triple budget
+does not consistently pick the curator's 6 relations when the abstract
+contains 10+. This is a model-choice problem, not a prompt problem;
+raising the cap to 10 was tested and lost F1 (precision fell faster
+than recall rose).
+
+v1.3 path:
+  1. LLM-judge matching: instead of exact predicate + fuzzy entities,
+     an LLM decides if two triples are semantically equivalent.
+     Expected: +0.10 to +0.15 F1.
+  2. Bigger gold set: 50–100 triples reduces noise from n=20.
+     Expected: ±0.05 stability, not a score gain.
+  3. gpt-4o reason-tier: better relation selection under the cap.
+     Expected: +0.05 to +0.10 F1 at ~10× cost.
+
 ## Why F1 = 0.36 is not a failure — and not a pass
 
 The ship bar was F1 ≥ 0.6. Live F1 = 0.36 (0.31 at v1.1.0), so the bar was **not met**,

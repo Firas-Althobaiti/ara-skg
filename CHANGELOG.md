@@ -6,17 +6,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-11-19
+
 ### Added
-- Predicate canonicalization (v1.2A, #24): `ara/schemas/predicates.py`
-  (20-verb `CANONICAL_PREDICATES` + ~55-entry synonym table + idempotent
-  `canonicalize()`), `Literal`-constrained live extraction schema, canonical
-  predicates applied in the pipeline and on both sides of eval matching,
-  polarity-based predicate groups + bipartite F1 in the eval, and
-  `ara/canonicalizer.py` (`CANONICALIZER_MODE=rule` default / `rule+llm`
-  cached fallback). Over-prediction guard: `MAX_RELATIONS_PER_CHUNK=6` +
-  0.6 confidence floor in `LLMExtractor`. Live eval: F1 0.3056 → 0.3636,
-  n_predicted 52 → 24, distractor_rejection stays 1.0 (target 0.5 not met —
-  see HANDOFF Phase 15A).
+- Predicate canonicalization: 20-verb inventory (`CANONICAL_PREDICATES`)
+  with ~55 synonyms (`PREDICATE_SYNONYMS`); idempotent `canonicalize()`.
+- LLM Literal-constrained schema: `RelationTriple.predicate` is a
+  Literal over exactly the 20 canonical verbs; the prompt lists all 20
+  and forbids free-form predicates.
+- Over-prediction guard in `LLMExtractor._post_process`:
+  confidence floor 0.6, top-6 by confidence per chunk, before/after
+  logging.
+- Optional LLM-fallback canonicalizer (`ara/canonicalizer.py`,
+  `CANONICALIZER_MODE=rule` default; `rule+llm` opt-in with file cache).
+- Bipartite non-consuming matching in `prf1` (a merged prediction
+  counts for each gold it covers).
+- Entity matching now requires ≥2-token containment to prevent
+  "BRCA1" from matching "BRCA1 dysfunction".
+
+### Changed
+- Live F1: 0.3056 → 0.3636
+- Live precision: 0.2115 → 0.3333
+- Live recall: 0.5500 → 0.4000 (recall drop from the cap tradeoff)
+- n_predicted per eval run: 52 → 24
+- distractor_rejection: 1.0000 (unchanged, by design)
+
+### Fixed
+- LLM no longer emits non-canonical predicates
+  ("is_associated_with_increased_risk_of" etc.) — the schema rejects
+  them at the boundary.
+- Eval no longer double-counts a merged prediction against multiple
+  gold triples inconsistently.
+
+### Known Limitations (v1.2.0)
+- Live F1 = 0.3636, still below the 0.5 target.
+- Root cause: under a 6-triple cap, gpt-4o-mini does not consistently
+  select the curator's 6 relations when the abstract contains 10+.
+- v1.3 will address: LLM-judge matching, larger gold set, optional
+  gpt-4o reason-tier pass. See HANDOFF "Phase 15B — v1.2.0 Release".
 
 ## [1.1.0] — 2026-11-19
 

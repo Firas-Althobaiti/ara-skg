@@ -503,3 +503,41 @@ schema + fuzzy entity matching in the eval):
   (3: cap ≤ 6, conf floor 0.6, prompt contains inventory + verbatim instructions),
   `tests/integration/test_eval_canonicalization.py` (5), `test_canonicalizer_llm.py` (4).
 - ruff/black clean; mypy --strict 0 errors in 66 files; make eval PASS.
+
+## Phase 15B — v1.2.0 Release (2026-11-19)
+
+### Shipped in v1.2.0 (all from Phase 15A, PR #25)
+- Predicate canonicalization (20 verbs + 55 synonyms, idempotent).
+- LLM Literal-constrained schema — no free-form predicates.
+- Over-prediction guard (confidence 0.6, top-6 by confidence).
+- Optional LLM-fallback canonicalizer (rule default, rule+llm opt-in).
+- Bipartite non-consuming matching in eval.
+- Entity match: ≥2-token containment required.
+
+### Honest metrics (measured on main, reproducible)
+| metric               | v1.1.0 | v1.2.0 | Δ       |
+|----------------------|--------|--------|---------|
+| live F1              | 0.3056 | 0.3636 | +19%    |
+| live precision       | 0.2115 | 0.3333 | +58%    |
+| live recall          | 0.5500 | 0.4000 | −27%    |
+| distractor_rejection | 1.0000 | 1.0000 | unchanged |
+| n_predicted          | 52     | 24     | −54%    |
+
+### Why we shipped at 0.36 rather than continue
+- The cap-vs-curator gap is a model-choice problem, not a prompt one.
+- Raising the cap to 10 was tested and lost F1 (precision fell faster
+  than recall recovered).
+- Ship v1.2.0 (precision win is real and useful), then v1.3 (LLM-judge)
+  with room to iterate without blocking a release.
+
+### v1.3 roadmap (priority order)
+1. LLM-judge matching — expected F1 0.36 → 0.50–0.60.
+2. Bigger gold set (50–100 triples) — reduces n=20 noise.
+3. gpt-4o reason-tier option — better relation selection under cap.
+4. Neo4j read-only enforcement — deferred from v1.1.
+
+### v1.2.0 artifacts
+- Tag: v1.2.0 on main
+- Release notes: CHANGELOG excerpt
+- Baseline file: artifacts/BASELINE_v1.1.md
+- Live eval report: artifacts/eval_live_20261119.md (updated to v1.2.0)
