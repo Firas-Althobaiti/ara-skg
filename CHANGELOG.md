@@ -9,12 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - LLM-judge matching in the live eval (#28): `ara/eval/judge.py`
   (`TripleJudge` — rule fast-path, cached structured-output judge with
-  `JudgeVerdict{equivalent, confidence, reason}`), `ara/prompts/judge.py`
-  (`JUDGE_PROMPT` v1), async `prf1_judged()` in `ara/eval/extraction_f1.py`,
-  config `JUDGE_MODE` (`rule` default; `rule+llm` in live eval only) and
-  `MAX_JUDGE_CALLS=100` budget guard raising `BudgetExceededError`. Judge
-  verdicts cached by (prompt version, model, normalized pred/gold hashes);
-  distractor rejection stays rule-based only. Mock eval path unchanged.
+  `JudgeVerdict{equivalent, confidence, reason}`); cache
+  key = `judge|<PROMPT_VERSION>|<sha256 of normalized predicted>|<sha256 of
+  normalized gold>` + model name, so prompt or model changes never reuse
+  stale verdicts.
+- `ara/prompts/judge.py` (NEW): `JUDGE_PROMPT` (v1) + `JudgeVerdict` schema.
+- `ara/eval/extraction_f1.py`: new async `prf1_judged(predicted, gold, judge)`
+  — same bipartite semantics as `prf1`, but rule-unmatched pairs go to the
+  judge. `eval_with_mode` uses it only in live mode (`JUDGE_MODE=rule+llm`
+  forced there; `rule` forced in mock). `distractor_rejection` is ALWAYS
+  rule-based only — the judge never sees distractors.
+- `ara/config.py`: `JUDGE_MODE: Literal["rule","rule+llm"] = "rule"`,
+  `MAX_JUDGE_CALLS: int = 100`. Budget guard raises `BudgetExceededError`
+  (never silently truncates); judge-call logging:
+  `judge calls: N (rule-matched: M, llm-judged: K, llm-accepted: A)` in
+  eval-live console output and the markdown report.
+
+### Known Limitations (measured 2026-11-21, `EVAL_CACHE=1 make eval-live`)
+- Live F1 unchanged at 0.3636 (target 0.5 not met): of 24×20 pred/gold pairs
+  none had matching entities with a mismatched predicate, so the judge made
+  0 calls. Remaining misses are entity-level (relation selection under the
+  6-per-chunk cap), not predicate-equivalence. distractor_rejection stays
+  1.0. See HANDOFF "Phase 15C — Live Eval Results"; v1.3B = reason-tier pass
+  + bigger gold.
 
 ## [1.2.0] — 2026-11-19
 

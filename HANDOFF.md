@@ -574,18 +574,38 @@ schema + fuzzy entity matching in the eval):
 - Mock live-shape check: `eval_with_mode("mock")` on real abstracts →
   distractor_rejection 1.0, judge stats all zero (rule-only, no LLM).
 
-### Live eval results — PENDING (blocked on API key)
-`OPENAI_API_KEY` is empty in `.env`, so `make eval-live` was NOT run for this
-PR — no live F1 is claimed. To verify (manual, one run ≈ ≤ $0.02):
-1. `EVAL_CACHE=1 make eval-live` → record F1 / precision / recall /
-   distractor_rejection / judge calls vs the v1.2.0 baseline
-   (F1 0.3636, P 0.3333, R 0.4000, DR 1.0000, n_pred 24).
-2. Targets: F1 ≥ 0.5, distractor_rejection = 1.0, judge calls ≤ 100.
-3. Paste results here under "Phase 15C — Live Eval Results". If F1 < 0.5,
-   print the 5 gold triples most often rejected by the judge + the judge's
-   reason strings (guides v1.3B: bigger gold or judge prompt revision).
+### Live eval results — MEASURED 2026-11-21 (EVAL_CACHE=1 make eval-live, gpt-4o-mini)
+Report: `artifacts/eval_live_20261120.md`. Extraction calls were EVAL_CACHE
+hits from the 2026-11-19 run, so predictions are identical to v1.2.0 (n=24).
 
-### Expected effect (design estimate, not measured)
-Judge only fires on entity-matching / predicate-mismatched pairs, so at
-n_pred=24 × n_gold=20 the LLM-call count is bounded well under MAX_JUDGE_CALLS
-=100 in practice. Each accepted pair adds up to +1 recall and +1 precision.
+| metric               | v1.2.0 | v1.3A (judge) | target  |
+|----------------------|--------|---------------|---------|
+| live F1              | 0.3636 | **0.3636**    | >= 0.5  |
+| live precision       | 0.3333 | 0.3333        | >= 0.45 |
+| live recall          | 0.4000 | 0.4000        | >= 0.55 |
+| distractor_rejection | 1.0000 | **1.0000**    | = 1.0   |
+| n_predicted          | 24     | 24            | —       |
+| judge calls          | N/A    | **0** (max 100) | <= 100 |
+| incremental cost     | —      | $0 (cache hits + 0 judge calls) | <= $0.02 |
+
+**Target NOT met — and the judge had nothing to judge.** Of 24×20 pred/gold
+pairs: 8 rule-matched, **0** had matching entities with a mismatched
+predicate, and the remaining pairs all differ in entities (which the judge's
+own rules reject). The LLM judge therefore made zero calls and F1 is
+unchanged. The 12 unrecalled gold triples are entity-level misses, not
+predicate-equivalence misses, e.g. gold "PARP inhibition | causes | apoptosis"
+vs emitted "inhibition of PARP | causes | persistence of DNA lesions"
+(subject matches, object doesn't), gold "BRCA1 mutations | predispose_to |
+breast cancer" vs emitted "mutations in BRCA1 and BRCA2 | associated_with |
+breast and other cancers". Full lists: unmatched preds are mostly generic
+("PARP inhibitors | part_of | combination strategies", conf 0.9) — the
+6-per-chunk cap again forced model-level choices, confirming the v1.2.0
+finding that this is a model-choice problem, not a matching problem.
+
+### Implication for v1.3B
+- LLM-judge matching is shipped and safe (0 calls, DR 1.0, budget intact) but
+  does not move F1 on this gold — it will matter once entities align better.
+- The F1 lever is relation *selection* under the cap, not matching: gpt-4o
+  reason-tier pass on missed gold (roadmap item 3) and/or a bigger gold set
+  (item 2). Relaxing the judge's entity rule (subset/superset acceptance)
+  was considered and rejected — it would erode distractor_rejection.
