@@ -66,6 +66,18 @@ def main() -> int:
         mock_res = asyncio.run(eval_with_mode("mock"))
         live_res = asyncio.run(eval_with_mode("live"))
         _mode_table(console, "ARA-SKG extraction eval (real-abstract gold)", [mock_res, live_res])
+        j = live_res.get("judge") or {}
+        console.print(
+            "judge calls: {total} (rule-matched: {rule_matched}, llm-judged: {llm_judged}, "
+            "llm-accepted: {llm_accepted}, cache-hits: {cache_hits}, max: {max_calls})".format(
+                total=j.get("total", 0),
+                rule_matched=j.get("rule_matched", 0),
+                llm_judged=j.get("llm_judged", 0),
+                llm_accepted=j.get("llm_accepted", 0),
+                cache_hits=j.get("cache_hits", 0),
+                max_calls=j.get("max_calls", "-"),
+            )
+        )
 
         artifacts = Path("artifacts")
         artifacts.mkdir(exist_ok=True)
@@ -77,7 +89,15 @@ def main() -> int:
             + "\n\n| mode | gold | f1 | precision | recall | distractor_rejection | n_predicted | n_gold |\n"
             + "|---|---|---|---|---|---|---|---|\n"
             + f"| {mock_res['mode']} | {mock_res['gold']} | {mock_res['f1']:.4f} | {mock_res['precision']:.4f} | {mock_res['recall']:.4f} | {mock_res['distractor_rejection']:.4f} | {mock_res['n_predicted']} | {mock_res['n_gold']} |\n"
-            + f"| {live_res['mode']} | {live_res['gold']} | {live_res['f1']:.4f} | {live_res['precision']:.4f} | {live_res['recall']:.4f} | {live_res['distractor_rejection']:.4f} | {live_res['n_predicted']} | {live_res['n_gold']} |\n",
+            + f"| {live_res['mode']} | {live_res['gold']} | {live_res['f1']:.4f} | {live_res['precision']:.4f} | {live_res['recall']:.4f} | {live_res['distractor_rejection']:.4f} | {live_res['n_predicted']} | {live_res['n_gold']} |\n"
+            + "\njudge calls: {total} (rule-matched: {rule_matched}, llm-judged: {llm_judged}, "
+            "llm-accepted: {llm_accepted}, cache-hits: {cache_hits}, max: {max_calls})\n".format(
+                **{
+                    k: j.get(k, 0)
+                    for k in ("total", "rule_matched", "llm_judged", "llm_accepted", "cache_hits")
+                },
+                **{"max_calls": j.get("max_calls", "-")},
+            ),
             encoding="utf-8",
         )
         console.print(f"[bold]report saved:[/bold] {report}")

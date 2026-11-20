@@ -541,3 +541,51 @@ schema + fuzzy entity matching in the eval):
 - Release notes: CHANGELOG excerpt
 - Baseline file: artifacts/BASELINE_v1.1.md
 - Live eval report: artifacts/eval_live_20261119.md (updated to v1.2.0)
+
+## Phase 15C — LLM-Judge Matching (#28)
+
+### What changed
+- `ara/eval/judge.py` (NEW): `TripleJudge.equivalent(predicted, gold)` —
+  rule-based `triple_match` fast path first (zero LLM cost), entity-mismatch
+  pairs rejected without an LLM call (the judge's own rules reject those),
+  otherwise a structured-output LLM judge (`JudgeVerdict{equivalent,
+  confidence, reason}`, fast tier gpt-4o-mini). Verdicts cached in-memory
+  per run and on disk via `ara/eval/_llm_cache.py` when `EVAL_CACHE=1`; cache
+  key = `judge|<PROMPT_VERSION>|<sha256 of normalized predicted>|<sha256 of
+  normalized gold>` + model name, so prompt or model changes never reuse
+  stale verdicts.
+- `ara/prompts/judge.py` (NEW): `JUDGE_PROMPT` (v1) + `JudgeVerdict` schema.
+- `ara/eval/extraction_f1.py`: new async `prf1_judged(predicted, gold, judge)`
+  — same bipartite semantics as `prf1`, but rule-unmatched pairs go to the
+  judge. `eval_with_mode` uses it only in live mode (`JUDGE_MODE=rule+llm`
+  forced there; `rule` forced in mock). `distractor_rejection` is ALWAYS
+  rule-based only — the judge never sees distractors.
+- `ara/config.py`: `JUDGE_MODE: Literal["rule","rule+llm"] = "rule"`,
+  `MAX_JUDGE_CALLS: int = 100`. Budget guard raises `BudgetExceededError`
+  (never silently truncates); judge-call logging:
+  `judge calls: N (rule-matched: M, llm-judged: K, llm-accepted: A)` in
+  eval-live console output and the markdown report.
+
+### Verification (offline, this PR)
+- ruff/black clean; mypy --strict 0 errors in 68 files; **128 tests pass**
+  (119 existing + 6 `tests/unit/test_judge.py` + 3
+  `tests/integration/test_eval_with_judge.py`).
+- `make eval` (mock) UNCHANGED: extraction_f1 0.9333, grounding 1.0, PASS.
+- Mock live-shape check: `eval_with_mode("mock")` on real abstracts →
+  distractor_rejection 1.0, judge stats all zero (rule-only, no LLM).
+
+### Live eval results — PENDING (blocked on API key)
+`OPENAI_API_KEY` is empty in `.env`, so `make eval-live` was NOT run for this
+PR — no live F1 is claimed. To verify (manual, one run ≈ ≤ $0.02):
+1. `EVAL_CACHE=1 make eval-live` → record F1 / precision / recall /
+   distractor_rejection / judge calls vs the v1.2.0 baseline
+   (F1 0.3636, P 0.3333, R 0.4000, DR 1.0000, n_pred 24).
+2. Targets: F1 ≥ 0.5, distractor_rejection = 1.0, judge calls ≤ 100.
+3. Paste results here under "Phase 15C — Live Eval Results". If F1 < 0.5,
+   print the 5 gold triples most often rejected by the judge + the judge's
+   reason strings (guides v1.3B: bigger gold or judge prompt revision).
+
+### Expected effect (design estimate, not measured)
+Judge only fires on entity-matching / predicate-mismatched pairs, so at
+n_pred=24 × n_gold=20 the LLM-call count is bounded well under MAX_JUDGE_CALLS
+=100 in practice. Each accepted pair adds up to +1 recall and +1 precision.

@@ -56,6 +56,16 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # (zero LLM cost, default); "rule+llm" = LLM fallback for unknown predicates.
     CANONICALIZER_MODE: Literal["rule", "rule+llm"] = Field(default="rule")
 
+    # LLM-judge matching in the eval (issue #28): "rule" = rule-based matching
+    # only (mock eval, zero LLM cost); "rule+llm" = an LLM judge decides
+    # semantic equivalence for prediction/gold pairs the rules reject.
+    # eval_with_mode forces "rule" in mock mode and "rule+llm" in live mode.
+    JUDGE_MODE: Literal["rule", "rule+llm"] = Field(default="rule")
+
+    # Budget guard for LLM-judge calls per eval-live run (issue #28): raise
+    # BudgetExceededError instead of silently truncating.
+    MAX_JUDGE_CALLS: int = Field(default=100)
+
     # Knowledge-graph backend: "networkx" (local JSON file, default, offline)
     # or "neo4j" (requires a running Neo4j instance, see docker-compose).
     ARA_KG_BACKEND: str = Field(default="networkx")
