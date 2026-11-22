@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `python -m ara.eval --live --explain` (#33): prints every missed gold
+  triple and every unmatched prediction with the best candidate on the other
+  side (entity Jaccard, even below the 0.5 threshold). Pure rule-based —
+  no LLM calls. `explain_mismatches()` in `ara/eval/extraction_f1.py`.
+
+### Fixed
+- `TripleJudge` cache key now includes the resolved model name on the FIRST
+  call too (#33): the LLM is lazily created before the key is computed, so
+  verdicts are no longer cached under `model="unknown"` when `EVAL_CACHE=1`.
+
 ## [1.3.0] — 2026-11-22
 
 ### Added

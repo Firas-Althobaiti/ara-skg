@@ -14,14 +14,33 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.table import Table
 
 from ara.eval import run_eval
-from ara.eval.extraction_f1 import eval_with_mode
+from ara.eval.extraction_f1 import eval_with_mode, explain_mismatches
 
 THRESHOLDS: dict[str, float] = {"extraction_f1": 0.6, "grounding": 1.0}
+
+
+def _print_explain(console: Console, res: dict[str, Any]) -> None:
+    """Print the rule-based mismatch report (no LLM) for ``--explain``."""
+    from ara.schemas import coerce_triple
+
+    predicted = [coerce_triple(t) for t in res.get("predicted", [])]
+    gold = [coerce_triple(t) for t in res.get("gold_triples", [])]
+    report = explain_mismatches(predicted, gold)
+    console.print("[dim](rule-based matching only — no judge, no LLM calls)[/dim]")
+    console.print(f"── Missed gold triples ({len(report['missed_gold'])}) " + "─" * 40)
+    for i, item in enumerate(report["missed_gold"], 1):
+        console.print(f"[{i}] {item['triple']}")
+        console.print(f"    → {item['reason']}")
+    console.print(f"── Unmatched predictions ({len(report['unmatched_predictions'])}) " + "─" * 40)
+    for i, item in enumerate(report["unmatched_predictions"], 1):
+        console.print(f"[{i}] {item['triple']}")
+        console.print(f"    → {item['reason']}")
 
 
 def _mode_table(console: Console, title: str, rows: list[dict[str, object]]) -> None:
@@ -61,10 +80,11 @@ def main() -> int:
     console = Console()
     mode = os.environ.get("EXTRACTION_MODE", "mock")
     live = "--live" in sys.argv or mode == "live"
+    explain = "--explain" in sys.argv
 
     if live:
         mock_res = asyncio.run(eval_with_mode("mock"))
-        live_res = asyncio.run(eval_with_mode("live"))
+        live_res = asyncio.run(eval_with_mode("live", return_triples=explain))
         _mode_table(console, "ARA-SKG extraction eval (real-abstract gold)", [mock_res, live_res])
         j = live_res.get("judge") or {}
         console.print(
@@ -101,8 +121,12 @@ def main() -> int:
             encoding="utf-8",
         )
         console.print(f"[bold]report saved:[/bold] {report}")
+        if explain:
+            _print_explain(console, live_res)
         return 0
 
+    if explain:
+        console.print("[yellow]--explain is only meaningful with --live; ignoring.[/yellow]")
     metrics = run_eval()
     table = Table(title="ARA-SKG evaluation metrics", header_style="bold cyan")
     table.add_column("Metric")

@@ -125,3 +125,36 @@ async def test_budget_guard_raises_instead_of_truncating() -> None:
     assert await judge.equivalent(p, g1) is True
     with pytest.raises(BudgetExceededError, match="judge calls"):
         await judge.equivalent(p, g2)
+
+
+async def test_cache_key_uses_resolved_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#33: the model must be resolved (via get_llm) BEFORE the cache key is
+    computed — the first call must not be cached under model='unknown'."""
+    import ara.eval.judge as judge_mod
+    import ara.llm
+
+    class _StubLLM:
+        model = "gpt-4o-mini"
+
+    monkeypatch.setattr(ara.llm, "get_llm", lambda tier="fast": _StubLLM())
+    monkeypatch.setattr(judge_mod, "cache_enabled", lambda: True)
+    monkeypatch.setattr(judge_mod, "cache_get", lambda prompt, model: None)
+    recorded: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        judge_mod, "cache_set", lambda prompt, model, payload: recorded.append((prompt, model))
+    )
+
+    judge = TripleJudge()  # llm=None → must be resolved lazily inside equivalent()
+
+    async def _ask(prompt: str) -> JudgeVerdict:
+        return JudgeVerdict(equivalent=True, confidence=0.9, reason="stub")
+
+    judge._ask_llm = _ask  # type: ignore[method-assign]
+    assert await judge.equivalent(PRED, GOLD) is True
+    # in-memory key uses the resolved model
+    assert all(k[0] == "gpt-4o-mini" for k in judge._mem)
+    # file-cache key uses the resolved model, never "unknown"
+    assert recorded, "cache_set must have been called"
+    assert recorded[0][1] == "gpt-4o-mini"
+    assert recorded[0][0].startswith("judge|v1|")
+    assert "unknown" not in recorded[0][1]

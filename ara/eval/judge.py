@@ -60,17 +60,25 @@ class TripleJudge:
         """Call the fast-tier LLM with structured output; returns the verdict."""
         from typing import cast
 
-        from ara.llm import get_llm
-
         if self._llm is None:
-            self._llm = get_llm("fast")
+            self._resolved_model()  # ensure self._llm is initialized
         runnable = self._llm.with_structured_output(JudgeVerdict)
         return cast(JudgeVerdict, await runnable.ainvoke(prompt))
 
-    def _model(self) -> str:
+    def _resolved_model(self) -> str:
+        """Lazily create the LLM (if needed) and return its resolved model name.
+
+        The cache key must contain the real model id (e.g. "gpt-4o-mini"),
+        never "unknown" — resolving the model first is the whole point (#33).
+        """
         if self._llm is None:
-            return "unknown"
+            from ara.llm import get_llm
+
+            self._llm = get_llm("fast")
         return str(getattr(self._llm, "model", "unknown"))
+
+    def _model(self) -> str:
+        return self._resolved_model()
 
     # -- main entry point ------------------------------------------------------
 
@@ -92,7 +100,7 @@ class TripleJudge:
         ):
             return False  # different entities → NOT equivalent (judge rule)
 
-        model = self._model()
+        model = self._resolved_model()  # resolve BEFORE the cache key (#33)
         key = (model, _hash_triple(p), _hash_triple(g))
         if key in self._mem:
             return self._mem[key]
