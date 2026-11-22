@@ -632,3 +632,43 @@ finding that this is a model-choice problem, not a matching problem.
 - CHANGELOG `[1.3.0]` with Added + Known Limitations (incl. the gpt-4o
   diagnostic); README eval table gains the v1.3.0 row; roadmap → v1.4
   (bigger gold set, Neo4j read-only; reason-tier dropped on evidence).
+
+## Phase 15E — Judge Cache Fix + Explain Mode (#33)
+
+### Fixes
+- `TripleJudge.equivalent` now resolves the LLM model (`_resolved_model()`)
+  BEFORE computing the cache key — the first call is no longer cached under
+  `model="unknown"`. Regression test: `test_cache_key_uses_resolved_model`.
+- New `python -m ara.eval --live --explain`: prints every missed gold triple
+  and every unmatched prediction with the best candidate on the other side
+  (entity Jaccard, even below the 0.5 threshold). Pure rule-based — no LLM
+  calls. Implementation: `explain_mismatches()` in `ara/eval/extraction_f1.py`,
+  `--explain` flag in `ara/eval/__main__.py`.
+
+### Verification
+- ruff/black clean; mypy --strict 0 errors in 68 files; **132 tests pass**
+  (128 + 1 cache-key + 3 explain).
+- `make eval` unchanged: 0.9333 / 1.0 PASS.
+- `EVAL_CACHE=1 python -m ara.eval --live --explain` run 2026-11-22: F1 0.3636,
+  judge 0 calls (cache hits), exit 0.
+
+### Explain output (v1.3.0 gold, top 5 missed gold / top 5 unmatched predictions)
+Missed gold:
+1. `PARP1 | facilitates | DNA repair` — best: 'PARP1 | binds | DNA breaks' (J 0.33)
+2. `PARP1 | attracts | DNA repair proteins` — best: 'PARP1 | binds | DNA breaks' (J 0.25)
+3. `single-strand breaks | collapse | replication forks` — best J 0.00
+4. `PARP inhibitors | kill | BRCA2-deficient tumours` — best: 'PARP inhibition | inhibits | tumours' (J 0.33)
+5. `BRCA1 mutations | predispose_to | breast cancer` — best: 'mutations in BRCA1 and BRCA2 | associated_with | breast and other cancers' (J 0.25)
+
+Unmatched predictions:
+1. `PARP1 | activates | homologous recombination` — best gold J 0.00
+2. `PARP inhibition | inhibits | tumours` — best: 'PARP inhibitors | kill | BRCA2-deficient tumours' (J 0.33)
+3. `mutations in BRCA1 and BRCA2 | associated_with | breast and other cancers` — best: 'BRCA1 mutations | predispose_to | breast cancer' (J 0.25)
+4. `inhibition of PARP | causes | persistence of DNA lesions` — best J 0.00
+5. `PARP | inhibits | DNA damage response genes.` — best J 0.00
+
+Read: near-misses cluster at J 0.25–0.33 (entity surface variants like
+"PARP inhibition" vs "PARP inhibitors"), and most misses are generic/off-gold
+statements at J 0.00. Input for v1.4B (gold-set growth): add abstracts whose
+relations the extractor DOES hit, and decide whether J≈0.3 entity variants
+should ever match (currently no — protects distractor_rejection).

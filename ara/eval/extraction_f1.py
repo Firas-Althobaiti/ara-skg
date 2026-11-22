@@ -248,6 +248,77 @@ async def prf1_judged(predicted: list[Triple], gold: list[Triple], judge: Any) -
     return {"precision": precision, "recall": recall, "f1": f1}
 
 
+def _jaccard(a: str, b: str) -> float:
+    """Token Jaccard between two entity names (0.0 when either is empty)."""
+    ta, tb = _tokens(a), _tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
+def _fmt(t: Triple) -> str:
+    return f"{t.subject.name} | {t.predicate} | {t.object.name}"
+
+
+def explain_mismatches(
+    predicted: list[Triple], gold: list[Triple]
+) -> dict[str, list[dict[str, Any]]]:
+    """Rule-based mismatch report (NO LLM, no judge) for ``--explain``.
+
+    For every gold triple no prediction rule-matches, and every prediction no
+    gold rule-matches, report the best candidate on the other side by entity
+    Jaccard — even when below the 0.5 match threshold, since that near-miss
+    is the key diagnostic. Deterministic and copy-pasteable.
+    """
+
+    def best_candidate(t: Triple, others: list[Triple]) -> tuple[str | None, float]:
+        best, best_score = None, 0.0
+        for o in others:
+            score = min(
+                _jaccard(t.subject.name, o.subject.name),
+                _jaccard(t.object.name, o.object.name),
+            )
+            if best is None or score > best_score:
+                best, best_score = _fmt(o), score
+        return best, best_score
+
+    missed_gold: list[dict[str, Any]] = []
+    for g in gold:
+        if not any(triple_match(p, g) for p in predicted):
+            cand, score = best_candidate(g, predicted)
+            missed_gold.append(
+                {
+                    "triple": _fmt(g),
+                    "best_candidate": cand,
+                    "best_entity_jaccard": round(score, 4),
+                    "reason": (
+                        f"no prediction rule-matched; best candidate '{cand}' "
+                        f"entity-Jaccard {score:.2f} < 0.5"
+                        if cand
+                        else "no predictions emitted"
+                    ),
+                }
+            )
+    unmatched_predictions: list[dict[str, Any]] = []
+    for p in predicted:
+        if not any(triple_match(p, g) for g in gold):
+            cand, score = best_candidate(p, gold)
+            unmatched_predictions.append(
+                {
+                    "triple": _fmt(p),
+                    "best_candidate": cand,
+                    "best_entity_jaccard": round(score, 4),
+                    "reason": (
+                        f"no gold rule-matched; best candidate '{cand}' "
+                        f"entity-Jaccard {score:.2f} < 0.5"
+                        if cand
+                        else "gold set is empty"
+                    ),
+                }
+            )
+    return {"missed_gold": missed_gold, "unmatched_predictions": unmatched_predictions}
+
+
 def load_raw_abstracts() -> list[Paper]:
     """Build eval Papers from the committed raw abstracts (``raw_abstracts/*.txt``)."""
     papers: list[Paper] = []
@@ -286,12 +357,14 @@ def distractor_rejection_rate(predicted: list[Triple], distractors: list[Triple]
 
 
 async def eval_with_mode(
-    mode: Any = "mock", gold_path: Path | str = REAL_GOLD_PATH
+    mode: Any = "mock", gold_path: Path | str = REAL_GOLD_PATH, return_triples: bool = False
 ) -> dict[str, Any]:
     """Run the extractor in *mode* over the real abstracts and score it.
 
     Returns ``{"mode", "gold", "n_gold", "n_predicted", "precision",
-    "recall", "f1", "distractor_rejection", "judge"}``. ``mode="mock"`` is
+    "recall", "f1", "distractor_rejection", "judge"}`` (plus ``"predicted"``
+    and ``"gold_triples"`` when *return_triples* is True, for ``--explain``).
+    ``mode="mock"`` is
     offline and always rule-based (no LLM, no cost); ``mode="live"`` needs
     ``OPENAI_API_KEY`` (and honors ``EVAL_CACHE=1``) and additionally uses the
     LLM judge (``JUDGE_MODE=rule+llm``) for prediction/gold pairs the rules
@@ -327,7 +400,7 @@ async def eval_with_mode(
                 "cache_hits": 0,
                 "max_calls": get_settings().MAX_JUDGE_CALLS,
             }
-        return {
+        result: dict[str, Any] = {
             "mode": mode,
             "gold": Path(gold_path).name,
             "n_gold": len(gold),
@@ -338,6 +411,10 @@ async def eval_with_mode(
             "distractor_rejection": distractor_rejection_rate(predicted, distractors),
             "judge": judge_stats,
         }
+        if return_triples:
+            result["predicted"] = predicted
+            result["gold_triples"] = gold
+        return result
     finally:
         if old is None:
             os.environ.pop("EXTRACTION_MODE", None)
@@ -365,6 +442,7 @@ __all__ = [
     "extract_predicted",
     "prf1",
     "prf1_judged",
+    "explain_mismatches",
     "extraction_f1",
     "distractor_rejection_rate",
     "eval_with_mode",
