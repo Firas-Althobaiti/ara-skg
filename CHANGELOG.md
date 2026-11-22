@@ -6,8 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-11-22
+
 ### Added
-- LLM-judge matching in the live eval (#28): `ara/eval/judge.py`
+- LLM-judge matching in the live eval (#28, PR #29): `ara/eval/judge.py`
   (`TripleJudge` — rule fast-path, cached structured-output judge with
   `JudgeVerdict{equivalent, confidence, reason}`); cache
   key = `judge|<PROMPT_VERSION>|<sha256 of normalized predicted>|<sha256 of
@@ -25,13 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `judge calls: N (rule-matched: M, llm-judged: K, llm-accepted: A)` in
   eval-live console output and the markdown report.
 
-### Known Limitations (measured 2026-11-21, `EVAL_CACHE=1 make eval-live`)
-- Live F1 unchanged at 0.3636 (target 0.5 not met): of 24×20 pred/gold pairs
-  none had matching entities with a mismatched predicate, so the judge made
-  0 calls. Remaining misses are entity-level (relation selection under the
-  6-per-chunk cap), not predicate-equivalence. distractor_rejection stays
-  1.0. See HANDOFF "Phase 15C — Live Eval Results"; v1.3B = reason-tier pass
-  + bigger gold.
+### Known Limitations (v1.3.0, measured live)
+- Live F1 = **0.3636, unchanged from v1.2.0 — target 0.5 NOT met.**
+  Measured twice: gpt-4o-mini (`EVAL_CACHE=1 make eval-live`, 2026-11-21:
+  judge 0 calls) and a one-shot gpt-4o diagnostic with no cache
+  (2026-11-22, 9 calls / 9,027 tokens / ~$0.04: judge 1 call, accepted 1 —
+  "treats" ≡ "kill" for drug effect on tumors — but it connected an
+  already-recalled gold to an already-precise prediction, so F1 did not
+  move). distractor_rejection stays 1.0 in both runs.
+- Root cause (confirmed): of 24×20 pred/gold pairs, ~0 have matching
+  entities with a mismatched predicate — the remaining misses are
+  entity-level relation-selection errors under the 6-per-chunk cap, which
+  neither predicate matching nor a bigger model fixes. gpt-4o picks the
+  same shape of relations as gpt-4o-mini at ~10× cost, so a reason-tier
+  extraction pass is NOT recommended on this evidence.
+- See HANDOFF "Phase 15C — Live Eval Results" and
+  `artifacts/gpt4o_diagnostic_20261122.md`. v1.4 path: bigger gold set
+  (50–100 triples) to reduce n=20 noise; Neo4j read-only enforcement.
 
 ## [1.2.0] — 2026-11-19
 
