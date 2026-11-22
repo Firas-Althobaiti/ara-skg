@@ -609,3 +609,26 @@ finding that this is a model-choice problem, not a matching problem.
   reason-tier pass on missed gold (roadmap item 3) and/or a bigger gold set
   (item 2). Relaxing the judge's entity rule (subset/superset acceptance)
   was considered and rejected — it would erode distractor_rejection.
+
+## Phase 15D — gpt-4o Diagnostic + v1.3.0 Release (#31)
+
+### One-shot gpt-4o diagnostic (2026-11-22, no cache, repo defaults untouched)
+- Method: scratch driver monkeypatched `get_llm` → gpt-4o for BOTH
+  extraction and judge; `EVAL_CACHE` unset. 9 LLM calls (8 extraction +
+  1 judge), 7,041 prompt + 1,986 completion tokens ≈ **$0.04** (budget $0.20).
+- Result: **F1 0.3636, P 0.3333, R 0.4000, DR 1.0, n_pred 24 — identical to
+  the gpt-4o-mini v1.2.0 baseline.** Judge fired once (accepted:
+  "treats" ≡ "kill" for drug effect on tumors) but the accepted pair
+  connected an already-recalled gold to an already-precise prediction, so
+  F1 did not move.
+- Gate F1 ≥ 0.45 NOT met → no reason-mode feature PR. gpt-4o picks the same
+  shape of relations at ~10× cost; reason-tier extraction pass is NOT
+  recommended on this evidence.
+- Artifact: `artifacts/gpt4o_diagnostic_20261122.md` (gitignored).
+
+### v1.3.0 release (docs-only PR)
+- Ships v1.3A (LLM-judge matching, PR #29) with honest metrics: live F1
+  0.3636 on both models, distractor_rejection 1.0, mock 0.9333/1.0.
+- CHANGELOG `[1.3.0]` with Added + Known Limitations (incl. the gpt-4o
+  diagnostic); README eval table gains the v1.3.0 row; roadmap → v1.4
+  (bigger gold set, Neo4j read-only; reason-tier dropped on evidence).

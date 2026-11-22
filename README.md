@@ -159,14 +159,19 @@ make eval-live   # live mode — real LLM, MANUAL only, needs OPENAI_API_KEY
 | mock (CI)         | 0.9333 | —         | —      | —                    | —           |
 | live v1.1.0       | 0.3056 | 0.2115    | 0.5500 | 1.0000               | 52          |
 | live v1.2.0       | 0.3636 | 0.3333    | 0.4000 | 1.0000               | 24          |
+| live v1.3.0       | 0.3636 | 0.3333    | 0.4000 | 1.0000               | 24          |
 
 v1.2.0 doubles precision (+58%) and halves over-prediction by
 capping relations per abstract at 6. F1 improved from 0.31 to 0.36,
 still below our 0.5 target. The recall drop (0.55→0.40) is the cost
-of the cap — v1.3 addresses it with LLM-judge matching, a larger
-gold set, and an optional reason-tier model (gpt-4o). We publish
-these numbers as-is rather than hide behind the 0.93 mock score,
-which measures a deterministic parser against strings it produced.
+of the cap. v1.3.0 adds LLM-judge matching for semantic triple
+equivalence; measured live it does not move F1 (0.3636, judge fired
+once and accepted a pair that changed nothing) — and a one-shot
+gpt-4o run (no cache, ~$0.04) also scored 0.3636, so the gap is
+entity-level relation selection under the cap, not predicate
+matching or model size. We publish these numbers as-is rather than
+hide behind the 0.93 mock score, which measures a deterministic
+parser against strings it produced.
 
 - **extraction_f1** — F1 of the extraction pipeline vs. gold triples
   (`ara/eval/gold/real_abstracts.jsonl`, 20 hand-verified triples; curation
@@ -205,17 +210,15 @@ make up     # docker compose up -d   (Neo4j)
 make seed   # python scripts/seed_neo4j.py — 30-triple biomedical seed (idempotent)
 ```
 
-## Roadmap → v1.3+
+## Roadmap → v1.4+
 
-v1.2.0 shipped predicate canonicalization + the over-prediction cap (live F1
-0.31 → 0.36, precision 0.21 → 0.33, recall 0.55 → 0.40 — see
-[Evaluation](#evaluation) and [docs/eval-methodology.md](docs/eval-methodology.md)).
-Next:
+v1.3.0 shipped LLM-judge matching; live F1 is honestly 0.3636 on both
+gpt-4o-mini and gpt-4o (see [Evaluation](#evaluation) and
+[docs/eval-methodology.md](docs/eval-methodology.md)). Next:
 
-- LLM-judge matching (predicate equivalence beyond canonicalization)
-- Bigger gold set (50–100 triples from curated papers)
-- Optional gpt-4o reason-tier pass on missed gold
+- Bigger gold set (50–100 triples from curated papers) — reduces n=20 noise
 - Neo4j read-only enforcement (deferred from v1.1)
+- (gpt-4o reason-tier pass: measured, no F1 gain at ~10× cost — not planned)
 
 ## Architecture (Mermaid)
 
